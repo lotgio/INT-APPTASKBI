@@ -1,8 +1,18 @@
 import type { Member, Task } from "./types";
 import { mockJobs } from "./mockJobs";
+import { supabase } from "./supabaseClient";
 
 const API_BASE = "/api";
-const USE_LOCAL_STORAGE = (import.meta as any)?.env?.VITE_USE_LOCAL_STORAGE !== "false";
+// Usa localStorage SOLO se esplicitamente richiesto (es. GitHub Pages)
+const USE_LOCAL_STORAGE = (import.meta as any)?.env?.VITE_USE_LOCAL_STORAGE === "true";
+// Usa Supabase se configurato (nuovo default)
+const USE_SUPABASE = !!supabase;
+const IS_GITHUB_PAGES = typeof window !== "undefined" && window.location.hostname.endsWith("github.io");
+const USE_MOCK_JOBS = USE_LOCAL_STORAGE || IS_GITHUB_PAGES;
+const JOBS_REMOTE_URL = ((import.meta as any)?.env?.VITE_JOBS_URL || "").trim();
+const BASE_URL = ((import.meta as any)?.env?.BASE_URL || "/") as string;
+let jobsCache: any[] | null = null;
+
 const STORAGE_KEYS = {
   members: "apptaskbi_members",
   tasks: "apptaskbi_tasks"
@@ -26,6 +36,53 @@ function ensureId(id?: string) {
   return id || (crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
 }
 
+function filterAndPaginateJobs(jobs: any[], options?: { limit?: number; offset?: number; search?: string; division?: string; resourceNo?: string; excludeTrasferta?: boolean; excludeMatching?: boolean }) {
+  let filtered = jobs;
+
+  if (options?.resourceNo) {
+    filtered = filtered.filter((j) => j["Resource No"] === options.resourceNo);
+  }
+
+  if (options?.excludeTrasferta !== false) {
+    filtered = filtered.filter((j) => !String(j["Detail Description"] || "").toUpperCase().includes("TRASFERTA"));
+  }
+
+  if (options?.excludeMatching !== false) {
+    filtered = filtered.filter((j) => Number(j.Quantity || 0) !== Number(j["Ore Loggate"] || 0));
+  }
+
+  if (options?.search) {
+    const search = options.search.toLowerCase();
+    filtered = filtered.filter((j) =>
+      String(j.JobNo || "").toLowerCase().includes(search) ||
+      String(j["Customer Name"] || "").toLowerCase().includes(search) ||
+      String(j["Plan Description"] || "").toLowerCase().includes(search)
+    );
+  }
+
+  if (options?.division) {
+    filtered = filtered.filter((j) => j.Division === options.division);
+  }
+
+  const offset = options?.offset || 0;
+  const limit = options?.limit || 50;
+  return filtered.slice(offset, offset + limit);
+}
+
+async function loadPublishedJobs(): Promise<any[]> {
+  if (jobsCache) return jobsCache;
+
+  const url = JOBS_REMOTE_URL || "./jobs.json";
+  const response = await fetch(url, { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error(`Errore jobs source: ${response.status}`);
+  }
+
+  const data = await response.json();
+  jobsCache = Array.isArray(data) ? data : (data?.data || []);
+  return jobsCache;
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     headers: {
@@ -43,6 +100,22 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 export async function getMembers(): Promise<Member[]> {
+  if (USE_SUPABASE && supabase) {
+    const { data, error } = await supabase
+      .from("members")
+      .select("*")
+      .order("name", { ascending: true });
+    if (error) throw error;
+    // Mappa lowercase a camelCase
+    return (data || []).map((m: any) => ({
+      id: m.id,
+      name: m.name,
+      email: m.email,
+      role: m.role,
+      avatar: m.avatar,
+      annualTarget: m.annualtarget
+    })) as Member[];
+  }
   if (USE_LOCAL_STORAGE) {
     return loadLocal<Member[]>(STORAGE_KEYS.members, []);
   }
@@ -50,6 +123,19 @@ export async function getMembers(): Promise<Member[]> {
 }
 
 export async function createMember(payload: Omit<Member, "id"> & { id?: string }): Promise<Member> {
+  if (USE_SUPABASE && supabase) {
+    const dbMember = {
+      id: ensureId(payload.id),
+      name: payload.name,
+      email: payload.email || null,
+      role: payload.role || null,
+      avatar: payload.avatar || null,
+      annualtarget: (payload as any).annualTarget || null
+    };
+    const { error } = await supabase.from("members").insert([dbMember]);
+    if (error) throw error;
+    return { ...payload, id: dbMember.id } as Member;
+  }
   if (USE_LOCAL_STORAGE) {
     const members = loadLocal<Member[]>(STORAGE_KEYS.members, []);
     const created: Member = { ...payload, id: ensureId(payload.id) } as Member;
@@ -64,6 +150,30 @@ export async function createMember(payload: Omit<Member, "id"> & { id?: string }
 }
 
 export async function updateMember(id: string, payload: Partial<Member>): Promise<Member> {
+  if (USE_SUPABASE && supabase) {
+    const dbPayload: any = {};
+    if (payload.name !== undefined) dbPayload.name = payload.name;
+    if (payload.email !== undefined) dbPayload.email = payload.email;
+    if (payload.role !== undefined) dbPayload.role = payload.role;
+    if (payload.avatar !== undefined) dbPayload.avatar = payload.avatar;
+    if ((payload as any).annualTarget !== undefined) dbPayload.annualtarget = (payload as any).annualTarget;
+
+    const { data, error } = await supabase
+      .from("members")
+      .update(dbPayload)
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw error;
+    return {
+      id: data.id,
+      name: data.name,
+      email: data.email,
+      role: data.role,
+      avatar: data.avatar,
+      annualTarget: data.annualtarget
+    } as Member;
+  }
   if (USE_LOCAL_STORAGE) {
     const members = loadLocal<Member[]>(STORAGE_KEYS.members, []);
     let updatedMember: Member | null = null;
@@ -83,6 +193,11 @@ export async function updateMember(id: string, payload: Partial<Member>): Promis
 }
 
 export async function deleteMember(id: string): Promise<{ ok: true } | { ok: false }>{
+  if (USE_SUPABASE && supabase) {
+    const { error } = await supabase.from("members").delete().eq("id", id);
+    if (error) throw error;
+    return { ok: true };
+  }
   if (USE_LOCAL_STORAGE) {
     const members = loadLocal<Member[]>(STORAGE_KEYS.members, []);
     const updated = members.filter((m) => m.id !== id);
@@ -95,6 +210,27 @@ export async function deleteMember(id: string): Promise<{ ok: true } | { ok: fal
 }
 
 export async function getTasks(): Promise<Task[]> {
+  if (USE_SUPABASE && supabase) {
+    const { data, error } = await supabase
+      .from("tasks")
+      .select("*")
+      .order("createdat", { ascending: false });
+    if (error) throw error;
+    // Mappa i campi da lowercase a camelCase
+    return (data || []).map((t: any) => ({
+      id: t.id,
+      commessa: t.commessa,
+      description: t.description,
+      client: t.client,
+      hours: t.hours,
+      status: t.status,
+      startDate: t.startdate,
+      endDate: t.enddate,
+      teamId: t.teamid,
+      assigneeId: t.assigneeid,
+      createdAt: t.createdat
+    })) as Task[];
+  }
   if (USE_LOCAL_STORAGE) {
     return loadLocal<Task[]>(STORAGE_KEYS.tasks, []);
   }
@@ -102,6 +238,29 @@ export async function getTasks(): Promise<Task[]> {
 }
 
 export async function createTask(payload: Partial<Task> & Pick<Task, "commessa" | "description" | "client" | "hours" | "startDate" | "endDate">): Promise<Task> {
+  if (USE_SUPABASE && supabase) {
+    // Mappa camelCase a lowercase per Supabase
+    const dbPayload = {
+      id: ensureId(payload.id),
+      commessa: payload.commessa,
+      description: payload.description,
+      client: payload.client,
+      hours: payload.hours,
+      startdate: payload.startDate,
+      enddate: payload.endDate,
+      status: payload.status || "pending",
+      teamid: payload.teamId || "default",
+      createdat: payload.createdAt || new Date().toISOString()
+    };
+    const { error } = await supabase.from("tasks").insert([dbPayload]);
+    if (error) throw error;
+    // Torna camelCase al frontend
+    return {
+      ...payload,
+      id: dbPayload.id,
+      createdAt: dbPayload.createdat
+    } as Task;
+  }
   if (USE_LOCAL_STORAGE) {
     const tasks = loadLocal<Task[]>(STORAGE_KEYS.tasks, []);
     const created: Task = {
@@ -120,6 +279,41 @@ export async function createTask(payload: Partial<Task> & Pick<Task, "commessa" 
 }
 
 export async function updateTask(id: string, payload: Partial<Task>): Promise<Task> {
+  if (USE_SUPABASE && supabase) {
+    // Mappa camelCase a lowercase
+    const dbPayload: any = {};
+    if (payload.commessa !== undefined) dbPayload.commessa = payload.commessa;
+    if (payload.description !== undefined) dbPayload.description = payload.description;
+    if (payload.client !== undefined) dbPayload.client = payload.client;
+    if (payload.hours !== undefined) dbPayload.hours = payload.hours;
+    if (payload.status !== undefined) dbPayload.status = payload.status;
+    if (payload.startDate !== undefined) dbPayload.startdate = payload.startDate;
+    if (payload.endDate !== undefined) dbPayload.enddate = payload.endDate;
+    if (payload.teamId !== undefined) dbPayload.teamid = payload.teamId;
+    if (payload.assigneeId !== undefined) dbPayload.assigneeid = payload.assigneeId;
+
+    const { data, error } = await supabase
+      .from("tasks")
+      .update(dbPayload)
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw error;
+    // Mappa lowercase a camelCase per il return
+    return {
+      id: data.id,
+      commessa: data.commessa,
+      description: data.description,
+      client: data.client,
+      hours: data.hours,
+      status: data.status,
+      startDate: data.startdate,
+      endDate: data.enddate,
+      teamId: data.teamid,
+      assigneeId: data.assigneeid,
+      createdAt: data.createdat
+    } as Task;
+  }
   if (USE_LOCAL_STORAGE) {
     const tasks = loadLocal<Task[]>(STORAGE_KEYS.tasks, []);
     let updatedTask: Task | null = null;
@@ -139,6 +333,11 @@ export async function updateTask(id: string, payload: Partial<Task>): Promise<Ta
 }
 
 export async function deleteTask(id: string): Promise<{ ok: true } | { ok: false }>{
+  if (USE_SUPABASE && supabase) {
+    const { error } = await supabase.from("tasks").delete().eq("id", id);
+    if (error) throw error;
+    return { ok: true };
+  }
   if (USE_LOCAL_STORAGE) {
     const tasks = loadLocal<Task[]>(STORAGE_KEYS.tasks, []);
     const updated = tasks.filter((t) => t.id !== id);
@@ -153,29 +352,10 @@ export async function deleteTask(id: string): Promise<{ ok: true } | { ok: false
 export async function getJobs(options?: { limit?: number; offset?: number; search?: string; division?: string; resourceNo?: string; excludeTrasferta?: boolean; excludeMatching?: boolean }): Promise<any[]> {
   console.log("🔍 getJobs() chiamato con opzioni:", options);
   
-  // Su GitHub Pages (o localStorage mode), usa i mock jobs
-  if (USE_LOCAL_STORAGE) {
-    console.log("📦 Usando mock jobs (localStorage mode)");
-    let jobs = mockJobs;
-    
-    // Applica filtri base se richiesti
-    if (options?.search) {
-      const search = options.search.toLowerCase();
-      jobs = jobs.filter(j => 
-        j.jobNo?.toLowerCase().includes(search) ||
-        j.customerName?.toLowerCase().includes(search) ||
-        j.planDescription?.toLowerCase().includes(search)
-      );
-    }
-    
-    if (options?.division) {
-      jobs = jobs.filter(j => j.division === options.division);
-    }
-    
-    // Paginazione
-    const offset = options?.offset || 0;
-    const limit = options?.limit || 50;
-    return jobs.slice(offset, offset + limit);
+  // Su GitHub Pages (o localStorage mode), usa jobs.json pubblicato (sincronizzato da Azure Blob)
+  if (USE_MOCK_JOBS) {
+    const jobs = await loadPublishedJobs();
+    return filterAndPaginateJobs(jobs, options);
   }
   
   try {
@@ -205,14 +385,16 @@ export async function getJobs(options?: { limit?: number; offset?: number; searc
     return result.data || [];
   } catch (err) {
     console.error("❌ Errore caricamento jobs:", err);
-    throw err;
+    const jobs = await loadPublishedJobs();
+    return filterAndPaginateJobs(jobs, options);
   }
 }
 
 export async function getJobsStats(): Promise<{ total: number; divisions: string[] }> {
-  if (USE_LOCAL_STORAGE) {
-    const divisions = Array.from(new Set(mockJobs.map(j => j.division).filter(Boolean)));
-    return { total: mockJobs.length, divisions };
+  if (USE_MOCK_JOBS) {
+    const jobs = await loadPublishedJobs();
+    const divisions = Array.from(new Set(jobs.map((j: any) => j.Division).filter(Boolean)));
+    return { total: jobs.length, divisions };
   }
   
   try {
@@ -228,7 +410,7 @@ export async function getJobsStats(): Promise<{ total: number; divisions: string
 export async function syncJobsFromAzure(): Promise<{ ok: boolean; message: string }> {
   console.log("🔄 Sincronizzazione commesse da Azure richiesta...");
   
-  if (USE_LOCAL_STORAGE) {
+  if (USE_MOCK_JOBS) {
     console.log("📦 Modalità localStorage: sincronizzazione non disponibile");
     return { ok: true, message: "Sincronizzazione non disponibile in modalità statica. Usando dati mock." };
   }

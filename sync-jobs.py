@@ -9,6 +9,9 @@ import sys
 import os
 from io import BytesIO
 from pathlib import Path
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Set UTF-8 encoding for stdout/stderr
 if sys.platform == "win32":
