@@ -302,6 +302,19 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
     year: "numeric"
   }).format(currentMonth);
 
+  const calendarFilterMember = calendarMemberFilter === "all"
+    ? null
+    : members.find((member) => member.id === calendarMemberFilter) ?? null;
+
+  const calendarFilterLabel = calendarFilterMember ? calendarFilterMember.name : "Tutte";
+
+  const handleCycleCalendarFilter = () => {
+    const options = ["all", ...members.map((member) => member.id)];
+    const currentIndex = options.indexOf(calendarMemberFilter);
+    const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % options.length : 0;
+    setCalendarMemberFilter(options[nextIndex]);
+  };
+
   const handleDragStart = (taskId: string) => {
     setDraggedTaskId(taskId);
     setDraggedTaskEdge(null);
@@ -818,23 +831,14 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
                 ▶
               </button>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <label htmlFor="calendar-resource-filter" style={{ fontSize: "12px", color: "#64748b" }}>
-                Risorsa
-              </label>
-              <select
-                id="calendar-resource-filter"
-                value={calendarMemberFilter}
-                onChange={(event) => setCalendarMemberFilter(event.target.value)}
-              >
-                <option value="all">Tutte</option>
-                {members.map((member) => (
-                  <option key={member.id} value={member.id}>
-                    {member.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <button
+              className="secondary"
+              type="button"
+              onClick={handleCycleCalendarFilter}
+              title="Clicca per cambiare filtro risorsa"
+            >
+              Filtro risorsa: {calendarFilterLabel}
+            </button>
           </div>
 
           <div className="calendar" ref={calendarRef}>
