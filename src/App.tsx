@@ -24,7 +24,7 @@ interface Job {
 }
 
 export default function App() {
-  const [page, setPage] = useState<"create" | "team" | "manage" | "database" | "stats" | "jobs">("jobs");
+  const [page, setPage] = useState<"create" | "team" | "manage" | "database" | "stats" | "jobs">("manage");
   const [tasks, setTasks] = useState<Task[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
