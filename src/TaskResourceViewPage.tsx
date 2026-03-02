@@ -222,11 +222,6 @@ export default function TaskResourceViewPage({
             <p className="eyebrow">Vista risorsa</p>
             <h1>Risorsa non trovata</h1>
           </div>
-          {onBack && (
-            <button className="secondary" onClick={onBack}>
-              Torna all'app
-            </button>
-          )}
         </header>
       </div>
     );
@@ -244,11 +239,6 @@ export default function TaskResourceViewPage({
           <button className="secondary" onClick={copyShareLink}>
             Copia link
           </button>
-          {onBack && (
-            <button className="secondary" onClick={onBack}>
-              Torna all'app
-            </button>
-          )}
         </div>
       </header>
 
@@ -270,8 +260,8 @@ export default function TaskResourceViewPage({
               onChange={(event) => setRangeEnd(event.target.value)}
             />
           </label>
-          <button className="ghost" type="button" onClick={copyShareLink}>
-            Aggiorna link
+          <button className="primary" type="button" onClick={() => window.location.reload()}>
+            Aggiorna
           </button>
           {copyStatus && <span className="resource-copy-status">{copyStatus}</span>}
         </div>
