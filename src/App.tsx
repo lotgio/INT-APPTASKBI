@@ -68,6 +68,12 @@ export default function App() {
     load();
   }, []);
 
+  useEffect(() => {
+    if (!resourceView.enabled) {
+      setPage("manage");
+    }
+  }, [resourceView.enabled]);
+
   if (loading) {
     return <div className="page">Caricamento...</div>;
   }
