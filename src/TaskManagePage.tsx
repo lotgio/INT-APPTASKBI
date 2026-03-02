@@ -156,6 +156,7 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
+  const [calendarMemberFilter, setCalendarMemberFilter] = useState<string>("all");
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [draggedTaskEdge, setDraggedTaskEdge] = useState<"start" | "end" | null>(null);
   const [draggedTaskOrigin, setDraggedTaskOrigin] = useState<"sidebar" | "calendar" | null>(null);
@@ -817,6 +818,23 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
                 ▶
               </button>
             </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <label htmlFor="calendar-resource-filter" style={{ fontSize: "12px", color: "#64748b" }}>
+                Risorsa
+              </label>
+              <select
+                id="calendar-resource-filter"
+                value={calendarMemberFilter}
+                onChange={(event) => setCalendarMemberFilter(event.target.value)}
+              >
+                <option value="all">Tutte</option>
+                {members.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className="calendar" ref={calendarRef}>
@@ -830,7 +848,9 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
             <div className="calendar-grid body">
               {calendarDays.map((day) => {
                 const dateKey = formatDate(day.date);
-                const dayTasks = tasksByDate[dateKey] ?? [];
+                const dayTasks = (tasksByDate[dateKey] ?? []).filter((task) =>
+                  calendarMemberFilter === "all" ? true : task.assigneeId === calendarMemberFilter
+                );
                 return (
                   <div
                     key={day.key}
@@ -850,7 +870,7 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
                             style={{
                               backgroundColor: getAssigneeColor(task.assigneeId)
                             }}
-                            title={`${task.description} (${task.hours}h)`}
+                            title={`${task.commessa} • ${task.client} • ${task.description} (${task.hours}h)`}
                             onClick={() => setEditingTask(task)}
                             draggable
                             onDragStart={() => handleTaskDragStart(task.id)}
@@ -868,13 +888,17 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
                                 <strong>{task.client}</strong>
                                 <span className="hours">{getHoursPerDay(task)}h</span>
                               </div>
-                              <span
-                                className={`status ${task.status}`}
-                                title={statusLabels[task.status]}
-                                aria-label={statusLabels[task.status]}
-                              >
-                                {statusIcons[task.status]}
-                              </span>
+                              <span className="calendar-task-desc">{task.description}</span>
+                              <div className="calendar-task-meta">
+                                <span className="badge">{task.commessa}</span>
+                                <span
+                                  className={`status ${task.status}`}
+                                  title={statusLabels[task.status]}
+                                  aria-label={statusLabels[task.status]}
+                                >
+                                  {statusIcons[task.status]}
+                                </span>
+                              </div>
                             </div>
                             
                             <div className="calendar-task-right-edge" onDragStart={(e) => {
