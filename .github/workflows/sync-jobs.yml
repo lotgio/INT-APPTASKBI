@@ -2,8 +2,8 @@ name: Sync Jobs from Azure Blob
 
 on:
   schedule:
-    # Esegui ogni giorno alle 02:00 UTC (03:00 CET)
-    - cron: '0 2 * * *'
+    # Esegui 3 volte al giorno: 07:00, 12:00, 17:00 UTC (08:00, 13:00, 18:00 CET)
+    - cron: '0 7,12,17 * * *'
   workflow_dispatch:  # Permette di triggerare manualmente da GitHub
 
 jobs:
@@ -16,15 +16,23 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
       
-      - name: Install dependencies
+      - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           pip install pandas pyarrow azure-storage-blob python-dotenv
+      
+      - name: Install Node dependencies
+        run: npm ci
       
       - name: Create .env file
         run: |
@@ -38,20 +46,36 @@ jobs:
       - name: Sync jobs from Azure
         run: python sync-jobs.py
       
-      - name: Commit and push changes
+      - name: Commit and push jobs.json changes
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           
-          if git diff --quiet public/jobs.json; then
-            echo "❌ Nessun cambiamento in jobs.json"
-          else
+          if ! git diff --quiet public/jobs.json; then
             echo "✅ Cambiamenti rilevati in jobs.json"
             git add public/jobs.json
             git commit -m "chore: sync jobs from Azure Blob [automated]"
-            git push
-            
-            # Notifica su gh-pages per aggiornamento
-            npm run build 2>/dev/null || true
-            npx gh-pages -d dist -b gh-pages 2>/dev/null || true
+            git push origin main
+          else
+            echo "ℹ️  Nessun cambiamento in jobs.json"
           fi
+      
+      - name: Build application
+        run: |
+          export VITE_BASE=/INT-APPTASKBI/
+          export VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL || 'https://teadzgcurjjdbuoohakr.supabase.co' }}
+          export VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlYWR6Z2N1cmpqZGJ1b29oYWtyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0NTk4MDgsImV4cCI6MjA4ODAzNTgwOH0.PqyePbd6FISVUmAi4If41BCM_QpTpCr-7HkhENnE7IE' }}
+          npm run build
+      
+      - name: Copy jobs.json to dist
+        run: |
+          cp public/jobs.json dist/jobs.json
+      
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          cname: false
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
