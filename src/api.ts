@@ -152,6 +152,32 @@ export async function deleteTask(id: string): Promise<{ ok: true } | { ok: false
 
 export async function getJobs(options?: { limit?: number; offset?: number; search?: string; division?: string; resourceNo?: string; excludeTrasferta?: boolean; excludeMatching?: boolean }): Promise<any[]> {
   console.log("🔍 getJobs() chiamato con opzioni:", options);
+  
+  // Su GitHub Pages (o localStorage mode), usa i mock jobs
+  if (USE_LOCAL_STORAGE) {
+    console.log("📦 Usando mock jobs (localStorage mode)");
+    let jobs = mockJobs;
+    
+    // Applica filtri base se richiesti
+    if (options?.search) {
+      const search = options.search.toLowerCase();
+      jobs = jobs.filter(j => 
+        j.jobNo?.toLowerCase().includes(search) ||
+        j.customerName?.toLowerCase().includes(search) ||
+        j.planDescription?.toLowerCase().includes(search)
+      );
+    }
+    
+    if (options?.division) {
+      jobs = jobs.filter(j => j.division === options.division);
+    }
+    
+    // Paginazione
+    const offset = options?.offset || 0;
+    const limit = options?.limit || 50;
+    return jobs.slice(offset, offset + limit);
+  }
+  
   try {
     const params = new URLSearchParams({
       limit: String(options?.limit || 50),
@@ -184,6 +210,11 @@ export async function getJobs(options?: { limit?: number; offset?: number; searc
 }
 
 export async function getJobsStats(): Promise<{ total: number; divisions: string[] }> {
+  if (USE_LOCAL_STORAGE) {
+    const divisions = Array.from(new Set(mockJobs.map(j => j.division).filter(Boolean)));
+    return { total: mockJobs.length, divisions };
+  }
+  
   try {
     const response = await fetch("/api/jobs/stats");
     if (!response.ok) throw new Error("Errore stats");
@@ -196,6 +227,12 @@ export async function getJobsStats(): Promise<{ total: number; divisions: string
 
 export async function syncJobsFromAzure(): Promise<{ ok: boolean; message: string }> {
   console.log("🔄 Sincronizzazione commesse da Azure richiesta...");
+  
+  if (USE_LOCAL_STORAGE) {
+    console.log("📦 Modalità localStorage: sincronizzazione non disponibile");
+    return { ok: true, message: "Sincronizzazione non disponibile in modalità statica. Usando dati mock." };
+  }
+  
   try {
     const response = await fetch(`${API_BASE}/sync-jobs`, {
       method: "POST",
