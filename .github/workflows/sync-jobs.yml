@@ -1,5 +1,8 @@
 name: Sync Jobs from Azure Blob
 
+permissions:
+  contents: write
+
 on:
   schedule:
     # Esegui 3 volte al giorno: 07:00, 12:00, 17:00 UTC (08:00, 13:00, 18:00 CET)
@@ -45,20 +48,6 @@ jobs:
       
       - name: Sync jobs from Azure
         run: python sync-jobs.py
-      
-      - name: Commit and push jobs.json changes
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          
-          if ! git diff --quiet public/jobs.json; then
-            echo "✅ Cambiamenti rilevati in jobs.json"
-            git add public/jobs.json
-            git commit -m "chore: sync jobs from Azure Blob [automated]"
-            git push origin main
-          else
-            echo "ℹ️  Nessun cambiamento in jobs.json"
-          fi
       
       - name: Build application
         run: |
