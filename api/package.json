@@ -1,0 +1,13 @@
+{
+  "name": "apptaskbi-api",
+  "version": "1.0.0",
+  "private": true,
+  "main": "index.js",
+  "engines": {
+    "node": "18.x"
+  },
+  "dependencies": {
+    "@azure/cosmos": "^3.17.3",
+    "uuid": "^9.0.1"
+  }
+}
