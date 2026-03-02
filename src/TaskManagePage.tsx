@@ -306,7 +306,7 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
     ? null
     : members.find((member) => member.id === calendarMemberFilter) ?? null;
 
-  const calendarFilterLabel = calendarFilterMember ? calendarFilterMember.name : "Tutte";
+  const calendarFilterLabel = calendarFilterMember?.name ?? "Tutte";
 
   const handleCycleCalendarFilter = () => {
     const options = ["all", ...members.map((member) => member.id)];
