@@ -1,0 +1,57 @@
+name: Sync Jobs from Azure Blob
+
+on:
+  schedule:
+    # Esegui ogni giorno alle 02:00 UTC (03:00 CET)
+    - cron: '0 2 * * *'
+  workflow_dispatch:  # Permette di triggerare manualmente da GitHub
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas pyarrow azure-storage-blob python-dotenv
+      
+      - name: Create .env file
+        run: |
+          cat > .env << 'EOF'
+          AZURE_STORAGE_ACCOUNT=${{ secrets.AZURE_STORAGE_ACCOUNT }}
+          AZURE_STORAGE_KEY=${{ secrets.AZURE_STORAGE_KEY }}
+          AZURE_STORAGE_CONTAINER=${{ secrets.AZURE_STORAGE_CONTAINER }}
+          AZURE_STORAGE_BLOB=${{ secrets.AZURE_STORAGE_BLOB }}
+          EOF
+      
+      - name: Sync jobs from Azure
+        run: python sync-jobs.py
+      
+      - name: Commit and push changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          if git diff --quiet public/jobs.json; then
+            echo "❌ Nessun cambiamento in jobs.json"
+          else
+            echo "✅ Cambiamenti rilevati in jobs.json"
+            git add public/jobs.json
+            git commit -m "chore: sync jobs from Azure Blob [automated]"
+            git push
+            
+            # Notifica su gh-pages per aggiornamento
+            npm run build 2>/dev/null || true
+            npx gh-pages -d dist -b gh-pages 2>/dev/null || true
+          fi
