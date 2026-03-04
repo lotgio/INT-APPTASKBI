@@ -117,7 +117,7 @@ export default function TaskDetailModal({ task, members, onSave, onClose }: Prop
                 <option value="">Scegli una commessa aperta</option>
                 {jobOptions.map((job) => (
                   <option key={job.jobNo} value={job.jobNo}>
-                    {job.jobNo} — {job.customerName || "Cliente non disponibile"}
+                    {job.jobNo} — {job.planDescription || "Descrizione non disponibile"} ({job.customerName || "Cliente non disponibile"})
                   </option>
                 ))}
               </select>
