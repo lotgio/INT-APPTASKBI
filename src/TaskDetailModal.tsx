@@ -39,7 +39,8 @@ export default function TaskDetailModal({ task, members, onSave, onClose }: Prop
     const timer = window.setTimeout(async () => {
       try {
         setLoadingJobs(true);
-        const jobs = await getJobs({ limit: 50, search: query, excludeTrasferta: false, excludeMatching: false });
+        // Carica tutte le commesse senza filtri per permettere la ricerca completa
+        const jobs = await getJobs({ limit: 100, search: query });
         const mapped: JobOption[] = jobs
           .map((job: any) => ({
             jobNo: String(job.JobNo || "").trim(),
