@@ -1,5 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { getJobs } from "./api";
 import type { Task, TaskStatus, Member } from "./types";
+
+type JobOption = {
+  jobNo: string;
+  customerName: string;
+  planDescription: string;
+};
 
 interface Props {
   task: Task;
@@ -17,6 +24,52 @@ const statusLabels: Record<TaskStatus, string> = {
 export default function TaskDetailModal({ task, members, onSave, onClose }: Props) {
   const [draft, setDraft] = useState(task);
   const [error, setError] = useState<string | null>(null);
+  const [jobSearch, setJobSearch] = useState("");
+  const [jobOptions, setJobOptions] = useState<JobOption[]>([]);
+  const [loadingJobs, setLoadingJobs] = useState(false);
+
+  useEffect(() => {
+    const query = jobSearch.trim();
+
+    if (query.length < 2) {
+      setJobOptions([]);
+      return;
+    }
+
+    const timer = window.setTimeout(async () => {
+      try {
+        setLoadingJobs(true);
+        const jobs = await getJobs({ limit: 20, search: query });
+        const mapped: JobOption[] = jobs
+          .map((job: any) => ({
+            jobNo: String(job.JobNo || "").trim(),
+            customerName: String(job["Customer Name"] || "").trim(),
+            planDescription: String(job["Plan Description"] || "").trim()
+          }))
+          .filter((job: JobOption) => job.jobNo.length > 0);
+        setJobOptions(mapped);
+      } catch {
+        setJobOptions([]);
+      } finally {
+        setLoadingJobs(false);
+      }
+    }, 300);
+
+    return () => window.clearTimeout(timer);
+  }, [jobSearch]);
+
+  const handleSelectOpenJob = (selectedJobNo: string) => {
+    if (!selectedJobNo) return;
+    const selected = jobOptions.find((job) => job.jobNo === selectedJobNo);
+    if (!selected) return;
+
+    setDraft((prev) => ({
+      ...prev,
+      commessa: selected.jobNo,
+      client: selected.customerName || prev.client,
+      description: selected.planDescription || prev.description
+    }));
+  };
 
   const handleSave = async () => {
     setError(null);
@@ -47,6 +100,30 @@ export default function TaskDetailModal({ task, members, onSave, onClose }: Prop
         {error && <div className="alert">{error}</div>}
 
         <div className="modal-body">
+          <label>
+            Cerca commessa aperta
+            <input
+              value={jobSearch}
+              onChange={(e) => setJobSearch(e.target.value)}
+              placeholder="Digita almeno 2 caratteri (numero, cliente, descrizione)"
+            />
+            {loadingJobs && <small style={{ color: "#64748b" }}>Ricerca commesse...</small>}
+          </label>
+
+          {jobOptions.length > 0 && (
+            <label>
+              Seleziona da elenco
+              <select defaultValue="" onChange={(e) => handleSelectOpenJob(e.target.value)}>
+                <option value="">Scegli una commessa aperta</option>
+                {jobOptions.map((job) => (
+                  <option key={job.jobNo} value={job.jobNo}>
+                    {job.jobNo} — {job.customerName || "Cliente non disponibile"}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+
           <label>
             Numero commessa
             <input
