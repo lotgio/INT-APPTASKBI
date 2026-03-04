@@ -64,9 +64,11 @@ export default function TaskDetailModal({ task, members, onSave, onClose }: Prop
     return () => window.clearTimeout(timer);
   }, [jobSearch]);
 
-  const handleSelectOpenJob = (selectedJobNo: string) => {
-    if (!selectedJobNo) return;
-    const selected = jobOptions.find((job) => job.jobNo === selectedJobNo);
+  const handleSelectOpenJob = (selectedKey: string) => {
+    if (!selectedKey) return;
+    const selected = jobOptions.find(
+      (job) => `${job.jobNo}||${job.planDescription}||${job.customerName}` === selectedKey
+    );
     if (!selected) return;
 
     setDraft((prev) => ({
@@ -122,7 +124,10 @@ export default function TaskDetailModal({ task, members, onSave, onClose }: Prop
               <select defaultValue="" onChange={(e) => handleSelectOpenJob(e.target.value)}>
                 <option value="">Scegli una commessa aperta</option>
                 {jobOptions.map((job) => (
-                  <option key={job.jobNo} value={job.jobNo}>
+                  <option
+                    key={`${job.jobNo}-${job.planDescription}-${job.customerName}`}
+                    value={`${job.jobNo}||${job.planDescription}||${job.customerName}`}
+                  >
                     {job.jobNo} — {job.planDescription || "Descrizione non disponibile"} ({job.customerName || "Cliente non disponibile"})
                   </option>
                 ))}
