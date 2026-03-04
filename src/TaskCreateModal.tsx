@@ -39,7 +39,7 @@ export default function TaskCreateModal({ onTaskCreated, onClose }: Props) {
     const timer = window.setTimeout(async () => {
       try {
         setLoadingJobs(true);
-        const jobs = await getJobs({ limit: 20, search: query });
+        const jobs = await getJobs({ limit: 50, search: query, excludeTrasferta: false, excludeMatching: false });
         const mapped: JobOption[] = jobs
           .map((job: any) => ({
             jobNo: String(job.JobNo || "").trim(),
