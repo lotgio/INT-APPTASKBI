@@ -12,6 +12,19 @@ export type Task = {
   status: TaskStatus;
 };
 
+export type TodoItem = {
+  id: string;
+  title: string;
+  description?: string;
+  client?: string;
+  commessa?: string;
+  businessUnit?: string;
+  resourceId?: string;
+  completed: boolean;
+  createdAt?: string;
+  dueDate?: string;
+};
+
 export type Member = {
   id: string;
   name: string;

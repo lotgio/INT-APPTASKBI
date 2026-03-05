@@ -124,7 +124,7 @@ export default function JobsPage({ tasks = [], onSwitchPage, onCreateTaskFromJob
   // Carica i dati reali da Azure
   useEffect(() => {
     console.log("🔄 useEffect JobsPage in esecuzione");
-    loadJobs(false);
+    loadJobs(0, false);
   }, []);
 
   // Estrai le divisions uniche per il dropdown
@@ -230,7 +230,7 @@ export default function JobsPage({ tasks = [], onSwitchPage, onCreateTaskFromJob
         <div className="hero-buttons">
           <button 
             className="secondary" 
-            onClick={() => loadJobs(true)}
+            onClick={() => loadJobs(0, true)}
             disabled={isRefreshing}
             style={{ opacity: isRefreshing ? 0.7 : 1, cursor: isRefreshing ? 'not-allowed' : 'pointer' }}
           >

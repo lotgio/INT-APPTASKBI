@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { getMembers, getTasks } from "./api";
-import type { Member, Task } from "./types";
+import { getMembers, getTasks, getTodos } from "./api";
+import type { Member, Task, TodoItem } from "./types";
 import TaskCreatePage from "./TaskCreatePage";
 import TaskTeamPage from "./TaskTeamPage";
 import TaskManagePage from "./TaskManagePage";
@@ -9,6 +9,7 @@ import TaskStatsPage from "./TaskStatsPage";
 import JobsPage from "./JobsPage";
 import TaskFromJobModal from "./TaskFromJobModal";
 import TaskResourceViewPage from "./TaskResourceViewPage";
+import TodoPage from "./TodoPage";
 import "./App.css";
 
 interface Job {
@@ -24,8 +25,9 @@ interface Job {
 }
 
 export default function App() {
-  const [page, setPage] = useState<"create" | "team" | "manage" | "database" | "stats" | "jobs">("manage");
+  const [page, setPage] = useState<"create" | "team" | "manage" | "database" | "stats" | "jobs" | "todo">("manage");
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [todos, setTodos] = useState<TodoItem[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
@@ -51,13 +53,15 @@ export default function App() {
     const load = async () => {
       try {
         console.log("Caricamento dati iniziali...");
-        const [tasksData, membersData] = await Promise.all([
+        const [tasksData, membersData, todosData] = await Promise.all([
           getTasks(),
-          getMembers()
+          getMembers(),
+          getTodos()
         ]);
-        console.log("Dati caricati:", { tasksData, membersData });
+        console.log("Dati caricati:", { tasksData, membersData, todosData });
         setTasks(tasksData);
         setMembers(membersData);
+        setTodos(todosData);
       } catch (err) {
         console.error("Errore caricamento:", err);
       } finally {
@@ -98,6 +102,73 @@ export default function App() {
 
   return (
     <>
+      <div style={{
+        display: "flex",
+        gap: "12px",
+        padding: "16px 32px",
+        borderBottom: "1px solid #e2e8f0",
+        backgroundColor: "white",
+        position: "sticky",
+        top: 0,
+        zIndex: 100
+      }}>
+        <button
+          onClick={() => setPage("manage")}
+          style={{
+            padding: "8px 16px",
+            backgroundColor: page === "manage" ? "#0f172a" : "white",
+            color: page === "manage" ? "white" : "#0f172a",
+            border: "1px solid #ccc",
+            borderRadius: "4px",
+            cursor: "pointer",
+            fontSize: "14px",
+          }}
+        >
+          Manage Tasks
+        </button>
+        <button
+          onClick={() => setPage("todo")}
+          style={{
+            padding: "8px 16px",
+            backgroundColor: page === "todo" ? "#0f172a" : "white",
+            color: page === "todo" ? "white" : "#0f172a",
+            border: "1px solid #ccc",
+            borderRadius: "4px",
+            cursor: "pointer",
+            fontSize: "14px",
+          }}
+        >
+          Todo
+        </button>
+        <button
+          onClick={() => setPage("stats")}
+          style={{
+            padding: "8px 16px",
+            backgroundColor: page === "stats" ? "#0f172a" : "white",
+            color: page === "stats" ? "white" : "#0f172a",
+            border: "1px solid #ccc",
+            borderRadius: "4px",
+            cursor: "pointer",
+            fontSize: "14px",
+          }}
+        >
+          Stats
+        </button>
+        <button
+          onClick={() => setPage("jobs")}
+          style={{
+            padding: "8px 16px",
+            backgroundColor: page === "jobs" ? "#0f172a" : "white",
+            color: page === "jobs" ? "white" : "#0f172a",
+            border: "1px solid #ccc",
+            borderRadius: "4px",
+            cursor: "pointer",
+            fontSize: "14px",
+          }}
+        >
+          Jobs
+        </button>
+      </div>
       {page === "create" ? (
         <TaskCreatePage
           members={members}
@@ -135,6 +206,13 @@ export default function App() {
           members={members}
           onTasksUpdate={setTasks}
           onMembersUpdate={setMembers}
+          onSwitchPage={(nextPage) => setPage(nextPage)}
+        />
+      ) : page === "todo" ? (
+        <TodoPage
+          todos={todos}
+          members={members}
+          onTodosUpdate={setTodos}
           onSwitchPage={(nextPage) => setPage(nextPage)}
         />
       ) : (

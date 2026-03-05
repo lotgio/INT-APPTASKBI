@@ -1,4 +1,4 @@
-import type { Member, Task } from "./types";
+import type { Member, Task, TodoItem } from "./types";
 import { mockJobs } from "./mockJobs";
 import { supabase } from "./supabaseClient";
 
@@ -438,4 +438,136 @@ export async function syncJobsFromAzure(): Promise<{ ok: boolean; message: strin
     console.error("❌ Errore sincronizzazione:", msg);
     throw err;
   }
+}
+
+const STORAGE_KEYS_TODO = {
+  todos: "apptaskbi_todos"
+} as const;
+
+export async function getTodos(): Promise<TodoItem[]> {
+  if (USE_SUPABASE && supabase) {
+    const { data, error } = await supabase
+      .from("todos")
+      .select("*")
+      .order("createdat", { ascending: false });
+    if (error) throw error;
+    return (data || []).map((t: any) => ({
+      id: t.id,
+      title: t.title,
+      description: t.description,
+      client: t.client,
+      commessa: t.commessa,
+      businessUnit: t.businessunit,
+      resourceId: t.resourceid,
+      completed: t.completed,
+      createdAt: t.createdat,
+      dueDate: t.duedate
+    })) as TodoItem[];
+  }
+  if (USE_LOCAL_STORAGE) {
+    return loadLocal<TodoItem[]>(STORAGE_KEYS_TODO.todos, []);
+  }
+  return request<TodoItem[]>("/todos");
+}
+
+export async function createTodo(payload: Omit<TodoItem, "id" | "createdAt"> & { id?: string }): Promise<TodoItem> {
+  if (USE_SUPABASE && supabase) {
+    const dbTodo = {
+      id: ensureId(payload.id),
+      title: payload.title,
+      description: payload.description || null,
+      client: payload.client || null,
+      commessa: payload.commessa || null,
+      businessunit: payload.businessUnit || null,
+      resourceid: payload.resourceId || null,
+      completed: payload.completed || false,
+      createdat: payload.createdAt || new Date().toISOString(),
+      duedate: payload.dueDate || null
+    };
+    const { error } = await supabase.from("todos").insert([dbTodo]);
+    if (error) throw error;
+    return { ...payload, id: dbTodo.id, createdAt: dbTodo.createdat } as TodoItem;
+  }
+  if (USE_LOCAL_STORAGE) {
+    const todos = loadLocal<TodoItem[]>(STORAGE_KEYS_TODO.todos, []);
+    const created: TodoItem = {
+      ...payload,
+      id: ensureId(payload.id),
+      createdAt: payload.createdAt || new Date().toISOString()
+    } as TodoItem;
+    const updated = [created, ...todos];
+    saveLocal(STORAGE_KEYS_TODO.todos, updated);
+    return created;
+  }
+  return request<TodoItem>("/todos", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function updateTodo(id: string, payload: Partial<TodoItem>): Promise<TodoItem> {
+  if (USE_SUPABASE && supabase) {
+    const dbPayload: any = {};
+    if (payload.title !== undefined) dbPayload.title = payload.title;
+    if (payload.description !== undefined) dbPayload.description = payload.description;
+    if (payload.client !== undefined) dbPayload.client = payload.client;
+    if (payload.commessa !== undefined) dbPayload.commessa = payload.commessa;
+    if (payload.businessUnit !== undefined) dbPayload.businessunit = payload.businessUnit;
+    if (payload.resourceId !== undefined) dbPayload.resourceid = payload.resourceId;
+    if (payload.completed !== undefined) dbPayload.completed = payload.completed;
+    if (payload.dueDate !== undefined) dbPayload.duedate = payload.dueDate;
+
+    const { data, error } = await supabase
+      .from("todos")
+      .update(dbPayload)
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw error;
+    return {
+      id: data.id,
+      title: data.title,
+      description: data.description,
+      client: data.client,
+      commessa: data.commessa,
+      businessUnit: data.businessunit,
+      resourceId: data.resourceid,
+      completed: data.completed,
+      createdAt: data.createdat,
+      dueDate: data.duedate
+    } as TodoItem;
+  }
+  if (USE_LOCAL_STORAGE) {
+    const todos = loadLocal<TodoItem[]>(STORAGE_KEYS_TODO.todos, []);
+    let updated: TodoItem | null = null;
+    const result = todos.map((t) => {
+      if (t.id !== id) return t;
+      updated = { ...t, ...payload, id } as TodoItem;
+      return updated;
+    });
+    saveLocal(STORAGE_KEYS_TODO.todos, result);
+    if (!updated) throw new Error("Todo non trovato");
+    return updated;
+  }
+  return request<TodoItem>(`/todos/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function deleteTodo(id: string): Promise<{ ok: true } | { ok: false }> {
+  if (USE_SUPABASE && supabase) {
+    const { error } = await supabase.from("todos").delete().eq("id", id);
+    if (error) throw error;
+    return { ok: true };
+  }
+  if (USE_LOCAL_STORAGE) {
+    const todos = loadLocal<TodoItem[]>(STORAGE_KEYS_TODO.todos, []);
+    const updated = todos.filter((t) => t.id !== id);
+    saveLocal(STORAGE_KEYS_TODO.todos, updated);
+    return { ok: true };
+  }
+  return request<{ ok: true } | { ok: false }>(`/todos/${id}`, {
+    method: "DELETE"
+  });
 }
