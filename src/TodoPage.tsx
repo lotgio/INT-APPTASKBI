@@ -1129,7 +1129,7 @@ export default function TodoPage({ todos, members, onTodosUpdate }: Props) {
                 Seleziona risorsa:
               </label>
               {members.map((member) => {
-                const calendarUrl = `${window.location.origin}/api/calendar/${member.id}`;
+                const calendarUrl = `https://teadzgcurjjdbuoohakr.supabase.co/functions/v1/calendar/${member.id}`;
                 const isCopied = copiedLink === member.id;
                 
                 return (
