@@ -109,11 +109,6 @@ serve(async (req) => {
         description: description,
         location: todo.client || "",
         status: todo.completed ? "CONFIRMED" : "TENTATIVE",
-        categories: [
-          "To-Do",
-          todo.businessunit || "Task",
-          todo.completed ? "Completato" : "Da fare",
-        ].filter(Boolean),
       });
     });
 
@@ -152,7 +147,6 @@ serve(async (req) => {
           task.status === "completed" || task.status === "done"
             ? "CONFIRMED"
             : "TENTATIVE",
-        categories: ["Task", task.status || "pending"].filter(Boolean),
       });
     });
 
