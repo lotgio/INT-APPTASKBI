@@ -1117,58 +1117,72 @@ export default function TodoPage({ todos, members, onTodosUpdate }: Props) {
             <div style={{ marginBottom: '20px' }}>
               <p><strong>Come funziona:</strong></p>
               <ol style={{ lineHeight: '1.8', paddingLeft: '20px' }}>
-                <li>Copia il link del calendario della tua risorsa</li>
-                <li>Apri Outlook → Calendario → "Aggiungi calendario"</li>
-                <li>Seleziona "Da Internet" e incolla il link</li>
-                <li>Il calendario si sincronizzerà automaticamente ogni 15-30 minuti</li>
-              </ol>
-            </div>
-
+          <li><strong>📅 Calendario:</strong> Task di progetto (con date multi-giorno)</li>
+          <li><strong>✓ Attività:</strong> To-Do personali (con scadenza)</li>
+          <li>Copia il link della risorsa che preferisci</li>
+          <li>Apri Outlook → "Aggiungi calendario" o "Aggiungi attività"</li>
+          <li>Seleziona "Da Internet" e incolla il link</li>
+          <li>Sincronizzazione automatica ogni 15-30 minuti</li>
             <div style={{ marginBottom: '16px' }}>
               <label style={{ fontWeight: '600', marginBottom: '8px', display: 'block' }}>
                 Seleziona risorsa:
               </label>
               {members.map((member) => {
                 const calendarUrl = `https://teadzgcurjjdbuoohakr.supabase.co/functions/v1/calendar/${member.id}`;
-                const isCopied = copiedLink === member.id;
+                const tasksUrl = `https://teadzgcurjjdbuoohakr.supabase.co/functions/v1/tasks/${member.id}`;
+                const isCopiedCal = copiedLink === `cal-${member.id}`;
+                const isCopiedTasks = copiedLink === `tasks-${member.id}`;
                 
                 return (
                   <div 
                     key={member.id}
                     style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '12px',
                       padding: '12px',
                       background: '#f8fafc',
                       borderRadius: '8px',
-                      marginBottom: '8px'
+                      marginBottom: '8px',
+                      border: '1px solid #e2e8f0'
                     }}
                   >
-                    <span 
-                      style={{
-                        flex: 1,
-                        fontWeight: '500',
-                        color: '#0f172a'
-                      }}
-                    >
+                    <div style={{ fontWeight: '600', marginBottom: '8px', color: '#0f172a' }}>
                       {member.name}
-                    </span>
-                    <button
-                      className="secondary"
-                      onClick={async () => {
-                        try {
-                          await navigator.clipboard.writeText(calendarUrl);
-                          setCopiedLink(member.id);
-                          setTimeout(() => setCopiedLink(null), 2000);
-                        } catch (err) {
-                          alert('Errore nella copia del link');
-                        }
-                      }}
-                      style={{ whiteSpace: 'nowrap' }}
-                    >
-                      {isCopied ? '✓ Copiato!' : '📋 Copia link'}
-                    </button>
+                    </div>
+                    
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      <button
+                        className="secondary"
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard.writeText(calendarUrl);
+                            setCopiedLink(`cal-${member.id}`);
+                            setTimeout(() => setCopiedLink(null), 2000);
+                          } catch (err) {
+                            alert('Errore nella copia del link');
+                          }
+                        }}
+                        style={{ whiteSpace: 'nowrap' }}
+                        title="Sottoscrivi i TASK di progetto nel Calendario di Outlook"
+                      >
+                        {isCopiedCal ? '✓ Copiato!' : '📅 Calendario'}
+                      </button>
+                      
+                      <button
+                        className="secondary"
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard.writeText(tasksUrl);
+                            setCopiedLink(`tasks-${member.id}`);
+                            setTimeout(() => setCopiedLink(null), 2000);
+                          } catch (err) {
+                            alert('Errore nella copia del link');
+                          }
+                        }}
+                        style={{ whiteSpace: 'nowrap' }}
+                        title="Sottoscrivi i TO-DO nelle Attività di Outlook"
+                      >
+                        {isCopiedTasks ? '✓ Copiato!' : '✓ Attività'}
+                      </button>
+                    </div>
                   </div>
                 );
               })}
