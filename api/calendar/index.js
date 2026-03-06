@@ -40,6 +40,17 @@ module.exports = async function (context, req) {
       throw todosError;
     }
 
+    // Recupera i tasks assegnati a questa risorsa
+    const { data: tasks, error: tasksError } = await supabase
+      .from('tasks')
+      .select('*')
+      .eq('assigneeId', resourceId)
+      .order('startdate', { ascending: true });
+
+    if (tasksError) {
+      throw tasksError;
+    }
+
     // Recupera info membro
     const { data: member } = await supabase
       .from('members')
@@ -87,13 +98,50 @@ module.exports = async function (context, req) {
         id: todo.id,
         start: start,
         end: end,
-        summary: todo.title || 'Task',
+        summary: todo.title || 'To-Do',
         description: description,
         location: todo.client || '',
         status: todo.completed ? 'CONFIRMED' : 'TENTATIVE',
         categories: [
+          'To-Do',
           todo.businessUnit || 'Task',
           todo.completed ? 'Completato' : 'Da fare'
+        ].filter(Boolean)
+      });
+    });
+
+    // Aggiungi eventi per ogni task
+    (tasks || []).forEach(task => {
+      let start = task.startdate ? new Date(task.startdate) : new Date();
+      let end = task.enddate ? new Date(task.enddate) : (() => {
+        const e = new Date(start);
+        // Se abbiamo ore, aggiungiamo quella durata; altrimenti 1 ora
+        if (task.hours) {
+          e.setHours(e.getHours() + task.hours);
+        } else {
+          e.setHours(e.getHours() + 1);
+        }
+        return e;
+      })();
+
+      const description = [
+        task.description || '',
+        task.commessa ? `Commessa: ${task.commessa}` : '',
+        task.client ? `Cliente: ${task.client}` : '',
+        task.hours ? `Ore: ${task.hours}` : ''
+      ].filter(Boolean).join('\\n');
+
+      calendar.createEvent({
+        id: task.id,
+        start: start,
+        end: end,
+        summary: task.commessa ? `[Task] ${task.commessa}` : 'Task di Progetto',
+        description: description,
+        location: task.client || '',
+        status: task.status === 'completed' || task.status === 'done' ? 'CONFIRMED' : 'TENTATIVE',
+        categories: [
+          'Task',
+          task.status || 'pending'
         ].filter(Boolean)
       });
     });
