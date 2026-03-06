@@ -21,21 +21,6 @@ serve(async (req) => {
     const pathParts = url.pathname.split("/");
     const resourceId = pathParts[pathParts.length - 1];
 
-    // Supporta apikey come query parameter per Outlook
-    const apikey = url.searchParams.get("apikey");
-    const expectedKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlYWR6Z2N1cmpqZGJ1b29oYWtyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0NTk4MDgsImV4cCI6MjA4ODAzNTgwOH0.PqyePbd6FISVUmAi4If41BCM_QpTpCr-7HkhENnE7IE";
-    
-    // Verifica apikey se presente (per chiamate senza header)
-    if (apikey && apikey !== expectedKey) {
-      return new Response(
-        JSON.stringify({ error: "Invalid API key" }),
-        { 
-          status: 403,
-          headers: { ...corsHeaders, "Content-Type": "application/json" }
-        }
-      );
-    }
-
     if (!resourceId || resourceId === "calendar") {
       return new Response(
         JSON.stringify({ error: "Missing resourceId in path" }),
@@ -55,8 +40,8 @@ serve(async (req) => {
     const { data: todos, error: todosError } = await supabase
       .from("todos")
       .select("*")
-      .eq("resourceId", resourceId)
-      .order("dueDate", { ascending: true });
+      .eq("resourceid", resourceId)
+      .order("duedate", { ascending: true });
 
     if (todosError) throw todosError;
 
@@ -93,14 +78,14 @@ serve(async (req) => {
 
     // Aggiungi eventi per ogni todo
     (todos || []).forEach((todo: any) => {
-      let start = todo.dueDate
-        ? new Date(todo.dueDate)
-        : todo.createdAt
-        ? new Date(todo.createdAt)
+      let start = todo.duedate
+        ? new Date(todo.duedate)
+        : todo.createdat
+        ? new Date(todo.createdat)
         : new Date();
 
       // Imposta orario default a 09:00 se è solo data
-      if (todo.dueDate && !todo.dueDate.includes("T")) {
+      if (todo.duedate && !String(todo.duedate).includes("T")) {
         start.setHours(9, 0, 0, 0);
       }
 
@@ -111,7 +96,7 @@ serve(async (req) => {
         todo.description || "",
         todo.commessa ? `Commessa: ${todo.commessa}` : "",
         todo.client ? `Cliente: ${todo.client}` : "",
-        todo.businessUnit ? `BU: ${todo.businessUnit}` : "",
+        todo.businessunit ? `BU: ${todo.businessunit}` : "",
       ]
         .filter(Boolean)
         .join("\\n");
@@ -126,7 +111,7 @@ serve(async (req) => {
         status: todo.completed ? "CONFIRMED" : "TENTATIVE",
         categories: [
           "To-Do",
-          todo.businessUnit || "Task",
+          todo.businessunit || "Task",
           todo.completed ? "Completato" : "Da fare",
         ].filter(Boolean),
       });
