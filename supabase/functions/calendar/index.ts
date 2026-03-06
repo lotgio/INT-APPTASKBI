@@ -1,7 +1,7 @@
 // Supabase Edge Function per generare feed iCalendar
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import ical from "https://esm.sh/ical-generator@3.6.1";
+import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
+import ical from "https://esm.sh/ical-generator@4.1.0";
 
 serve(async (req) => {
   // CORS headers
@@ -20,6 +20,21 @@ serve(async (req) => {
     const url = new URL(req.url);
     const pathParts = url.pathname.split("/");
     const resourceId = pathParts[pathParts.length - 1];
+
+    // Supporta apikey come query parameter per Outlook
+    const apikey = url.searchParams.get("apikey");
+    const expectedKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlYWR6Z2N1cmpqZGJ1b29oYWtyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0NTk4MDgsImV4cCI6MjA4ODAzNTgwOH0.PqyePbd6FISVUmAi4If41BCM_QpTpCr-7HkhENnE7IE";
+    
+    // Verifica apikey se presente (per chiamate senza header)
+    if (apikey && apikey !== expectedKey) {
+      return new Response(
+        JSON.stringify({ error: "Invalid API key" }),
+        { 
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        }
+      );
+    }
 
     if (!resourceId || resourceId === "calendar") {
       return new Response(

@@ -1129,7 +1129,7 @@ export default function TodoPage({ todos, members, onTodosUpdate }: Props) {
                 Seleziona risorsa:
               </label>
               {members.map((member) => {
-                const calendarUrl = `https://teadzgcurjjdbuoohakr.supabase.co/functions/v1/calendar/${member.id}`;
+                const calendarUrl = `https://teadzgcurjjdbuoohakr.supabase.co/functions/v1/calendar/${member.id}?apikey=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlYWR6Z2N1cmpqZGJ1b29oYWtyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0NTk4MDgsImV4cCI6MjA4ODAzNTgwOH0.PqyePbd6FISVUmAi4If41BCM_QpTpCr-7HkhENnE7IE`;
                 const isCopied = copiedLink === member.id;
                 
                 return (
