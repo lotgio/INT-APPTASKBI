@@ -391,6 +391,8 @@ export default function TodoPage({ todos, members, onTodosUpdate }: Props) {
   const [searchTerm, setSearchTerm] = useState("");
   const [editingTodo, setEditingTodo] = useState<TodoItem | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [showCalendarModal, setShowCalendarModal] = useState(false);
+  const [copiedLink, setCopiedLink] = useState<string | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
 
   // Drag & drop sensors
@@ -910,6 +912,13 @@ export default function TodoPage({ todos, members, onTodosUpdate }: Props) {
           <button className="primary" onClick={() => setIsCreateOpen(true)}>
             ➕ Nuovo task
           </button>
+          <button 
+            className="secondary" 
+            onClick={() => setShowCalendarModal(true)}
+            title="Sottoscrivi calendario Outlook"
+          >
+            📅 Calendario
+          </button>
         </div>
         {viewMode === "board" && (
           <div className="todo-group-select">
@@ -1097,7 +1106,90 @@ export default function TodoPage({ todos, members, onTodosUpdate }: Props) {
           onClose={() => setEditingTodo(null)}
           onSave={handleSaveEdit}
         />
+      )}      {showCalendarModal && (
+        <div className="modal-overlay" onClick={() => setShowCalendarModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>📅 Sottoscrivi Calendario Outlook</h3>
+              <button className="ghost" onClick={() => setShowCalendarModal(false)}>✕</button>
+            </div>
+            
+            <div style={{ marginBottom: '20px' }}>
+              <p><strong>Come funziona:</strong></p>
+              <ol style={{ lineHeight: '1.8', paddingLeft: '20px' }}>
+                <li>Copia il link del calendario della tua risorsa</li>
+                <li>Apri Outlook → Calendario → "Aggiungi calendario"</li>
+                <li>Seleziona "Da Internet" e incolla il link</li>
+                <li>Il calendario si sincronizzerà automaticamente ogni 15-30 minuti</li>
+              </ol>
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ fontWeight: '600', marginBottom: '8px', display: 'block' }}>
+                Seleziona risorsa:
+              </label>
+              {members.map((member) => {
+                const calendarUrl = `${window.location.origin}/api/calendar/${member.id}`;
+                const isCopied = copiedLink === member.id;
+                
+                return (
+                  <div 
+                    key={member.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      padding: '12px',
+                      background: '#f8fafc',
+                      borderRadius: '8px',
+                      marginBottom: '8px'
+                    }}
+                  >
+                    <span 
+                      style={{
+                        flex: 1,
+                        fontWeight: '500',
+                        color: '#0f172a'
+                      }}
+                    >
+                      {member.name}
+                    </span>
+                    <button
+                      className="secondary"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(calendarUrl);
+                          setCopiedLink(member.id);
+                          setTimeout(() => setCopiedLink(null), 2000);
+                        } catch (err) {
+                          alert('Errore nella copia del link');
+                        }
+                      }}
+                      style={{ whiteSpace: 'nowrap' }}
+                    >
+                      {isCopied ? '✓ Copiato!' : '📋 Copia link'}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={{
+              padding: '12px',
+              background: '#eff6ff',
+              border: '1px solid #bfdbfe',
+              borderRadius: '8px',
+              fontSize: '13px',
+              color: '#1e40af'
+            }}>
+              <strong>💡 Tip:</strong> Per aggiornamenti più frequenti (ogni 15 min), 
+              usa Outlook Web o l'app mobile e abilita "Sincronizzazione automatica calendari Internet"
+            </div>
+          </div>
+        </div>
       )}
+
+
 
       {isCreateOpen && (
         <div className="modal-overlay" onClick={() => setIsCreateOpen(false)}>
