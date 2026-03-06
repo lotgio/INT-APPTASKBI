@@ -65,7 +65,10 @@ function filterAndPaginateJobs(jobs: any[], options?: { limit?: number; offset?:
   }
 
   const offset = options?.offset || 0;
-  const limit = options?.limit || 50;
+  const limit = options?.limit ?? 0;
+  if (limit <= 0) {
+    return filtered.slice(offset);
+  }
   return filtered.slice(offset, offset + limit);
 }
 
@@ -359,8 +362,9 @@ export async function getJobs(options?: { limit?: number; offset?: number; searc
   }
   
   try {
+    const limitParam = options?.limit && options.limit > 0 ? options.limit : 1000;
     const params = new URLSearchParams({
-      limit: String(options?.limit || 50),
+      limit: String(limitParam),
       offset: String(options?.offset || 0),
       ...(options?.search && { search: options.search }),
       ...(options?.division && { division: options.division }),
