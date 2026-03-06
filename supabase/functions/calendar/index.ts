@@ -65,54 +65,47 @@ serve(async (req) => {
 
     // Crea calendario iCal
     const calendar = ical({
-      name: `Task ${memberName}`,
-      description: `Pianificazione task per ${memberName}`,
+      name: `Pianificazione ${memberName}`,
+      description: `Task e To-Do per ${memberName}`,
       timezone: "Europe/Rome",
       ttl: 900,
       prodId: {
         company: "AppTaskBI",
-        product: "Task Calendar",
+        product: "Calendar",
         language: "IT",
       },
     });
 
-    // Aggiungi eventi per ogni todo
+    // Aggiungi eventi per ogni TO-DO (alle 10:00)
     (todos || []).forEach((todo: any) => {
-      let start = todo.duedate
-        ? new Date(todo.duedate)
-        : todo.createdat
-        ? new Date(todo.createdat)
-        : new Date();
+      // Se non c'è duedate, salta
+      if (!todo.duedate) return;
 
-      // Imposta orario default a 09:00 se è solo data
-      if (todo.duedate && !String(todo.duedate).includes("T")) {
-        start.setHours(9, 0, 0, 0);
-      }
-
-      let end = new Date(start);
-      end.setHours(start.getHours() + 1);
+      const dueDate = todo.duedate.split("T")[0];
+      const startDateTime = new Date(`${dueDate}T10:00:00`);
+      const endDateTime = new Date(`${dueDate}T10:30:00`);
 
       const description = [
-        todo.description || "",
         todo.commessa ? `Commessa: ${todo.commessa}` : "",
         todo.client ? `Cliente: ${todo.client}` : "",
         todo.businessunit ? `BU: ${todo.businessunit}` : "",
+        todo.description || "",
       ]
         .filter(Boolean)
         .join("\\n");
 
       calendar.createEvent({
-        id: todo.id,
-        start: start,
-        end: end,
-        summary: todo.title || "To-Do",
+        id: `todo-${todo.id}`,
+        start: startDateTime,
+        end: endDateTime,
+        summary: `✅ TO-DO | ${todo.client || "Cliente"} | ${todo.title || "Senza titolo"}`,
         description: description,
-        location: todo.client || "",
+        allDay: false,
         status: todo.completed ? "CONFIRMED" : "TENTATIVE",
       });
     });
 
-    // Aggiungi eventi per ogni task
+    // Aggiungi eventi per ogni TASK (all-day, multi-giorno)
     (tasks || []).forEach((task: any) => {
       // Per i task, usa le date (all-day event) - supporta range multi-giorno
       let startDate = task.startdate ? task.startdate.split("T")[0] : new Date().toISOString().split("T")[0];
@@ -163,7 +156,7 @@ serve(async (req) => {
         "Content-Disposition": `attachment; filename="calendar-${resourceId}.ics"`,
         "Cache-Control": "no-cache, must-revalidate",
         "X-WR-CALDESC": `Pianificazione task per ${memberName}`,
-        "X-WR-CALNAME": `Task ${memberName}`,
+        "X-WR-CALNAME": `Pianificazione ${memberName}`,
         Refresh: "900",
       },
     });
