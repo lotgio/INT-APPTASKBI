@@ -114,35 +114,23 @@ serve(async (req) => {
 
     // Aggiungi eventi per ogni task
     (tasks || []).forEach((task: any) => {
-      let start = task.startdate ? new Date(task.startdate) : new Date();
-      let end = task.enddate
-        ? new Date(task.enddate)
-        : (() => {
-            const e = new Date(start);
-            if (task.hours) {
-              e.setHours(e.getHours() + task.hours);
-            } else {
-              e.setHours(e.getHours() + 1);
-            }
-            return e;
-          })();
+      // Per i task, usa solo la data (all-day event) senza ora
+      let eventDate = task.startdate ? task.startdate.split("T")[0] : new Date().toISOString().split("T")[0];
 
       const description = [
-        task.description || "",
         task.commessa ? `Commessa: ${task.commessa}` : "",
-        task.client ? `Cliente: ${task.client}` : "",
-        task.hours ? `Ore: ${task.hours}` : "",
+        task.hours ? `Ore assegnate: ${task.hours}` : "",
+        task.description || "",
       ]
         .filter(Boolean)
         .join("\\n");
 
       calendar.createEvent({
         id: task.id,
-        start: start,
-        end: end,
-        summary: task.commessa ? `[Task] ${task.commessa}` : "Task di Progetto",
+        start: eventDate,
+        summary: `${task.client || "Task"} | ${task.description || "Senza descrizione"}`,
         description: description,
-        location: task.client || "",
+        allDay: true,
         status:
           task.status === "completed" || task.status === "done"
             ? "CONFIRMED"
