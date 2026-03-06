@@ -114,8 +114,21 @@ serve(async (req) => {
 
     // Aggiungi eventi per ogni task
     (tasks || []).forEach((task: any) => {
-      // Per i task, usa solo la data (all-day event) senza ora
-      let eventDate = task.startdate ? task.startdate.split("T")[0] : new Date().toISOString().split("T")[0];
+      // Per i task, usa le date (all-day event) - supporta range multi-giorno
+      let startDate = task.startdate ? task.startdate.split("T")[0] : new Date().toISOString().split("T")[0];
+      let endDate = task.enddate ? task.enddate.split("T")[0] : startDate;
+      
+      // Se endDate è lo stesso giorno di startDate, aggiungi 1 giorno per far risultare almeno 1 giorno pieno in Outlook
+      if (endDate === startDate) {
+        const nextDay = new Date(startDate + "T00:00:00");
+        nextDay.setDate(nextDay.getDate() + 1);
+        endDate = nextDay.toISOString().split("T")[0];
+      } else {
+        // Se è multi-giorno, aggiungi 1 giorno alla fine (convenzione iCal per all-day)
+        const nextDay = new Date(endDate + "T00:00:00");
+        nextDay.setDate(nextDay.getDate() + 1);
+        endDate = nextDay.toISOString().split("T")[0];
+      }
 
       const description = [
         task.commessa ? `Commessa: ${task.commessa}` : "",
@@ -127,7 +140,8 @@ serve(async (req) => {
 
       calendar.createEvent({
         id: task.id,
-        start: eventDate,
+        start: startDate,
+        end: endDate,
         summary: `${task.client || "Task"} | ${task.description || "Senza descrizione"}`,
         description: description,
         allDay: true,
