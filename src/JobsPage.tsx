@@ -12,7 +12,9 @@ interface Job {
   quantity: number;
   ogreLoggate: number;
   orePianificate: number;
-  oreResidue: number;
+  orePianificateAperte: number;
+  oreResidueUfficiali: number;
+  orePianificabili: number;
 }
 
 interface Props {
@@ -71,8 +73,15 @@ export default function JobsPage({ tasks = [], onSwitchPage, onCreateTaskFromJob
       // Mappa campi
       const mappedJobs: Job[] = rawJobs.map((job: any) => {
         const jobNo = job.JobNo || "";
+        const quantity = Number(job.Quantity) || 0;
+        const oreLoggate = Number(job["Ore Loggate"]) || 0;
         const orePianificate = plannedHoursByJob[jobNo] || 0;
-        const oreResidue = Number(job["Ore Residue"]) || 0;
+        // Allineamento: il consuntivo assorbe prima il pianificato gia' presente.
+        const orePianificateAperte = Math.max(0, orePianificate - oreLoggate);
+        // Residuo ufficiale basato solo sul consuntivo CRM.
+        const oreResidueUfficiali = Math.max(0, quantity - oreLoggate);
+        // Pianificabili effettive: togliamo dal venduto sia il consuntivo sia il pianificato ancora aperto.
+        const orePianificabili = Math.max(0, quantity - oreLoggate - orePianificateAperte);
         return {
           jobNo,
           jobPlanNo: job.JobPlanNo || "",
@@ -80,10 +89,12 @@ export default function JobsPage({ tasks = [], onSwitchPage, onCreateTaskFromJob
           division: job.Division || "",
           customerName: job["Customer Name"] || "",
           parentChainName: job["Parent Chain Name"] || undefined,
-          quantity: Number(job.Quantity) || 0,
-          ogreLoggate: Number(job["Ore Loggate"]) || 0,
+          quantity,
+          ogreLoggate: oreLoggate,
           orePianificate,
-          oreResidue: Math.max(0, oreResidue - orePianificate)
+          orePianificateAperte,
+          oreResidueUfficiali,
+          orePianificabili
         };
       });
       
@@ -183,7 +194,9 @@ export default function JobsPage({ tasks = [], onSwitchPage, onCreateTaskFromJob
       totalVendute: filteredJobs.reduce((sum, j) => sum + j.quantity, 0),
       totalLogged: filteredJobs.reduce((sum, j) => sum + j.ogreLoggate, 0),
       totalPianificate: filteredJobs.reduce((sum, j) => sum + j.orePianificate, 0),
-      totalResidue: filteredJobs.reduce((sum, j) => sum + j.oreResidue, 0)
+      totalPianificateAperte: filteredJobs.reduce((sum, j) => sum + j.orePianificateAperte, 0),
+      totalResidueUfficiali: filteredJobs.reduce((sum, j) => sum + j.oreResidueUfficiali, 0),
+      totalPianificabili: filteredJobs.reduce((sum, j) => sum + j.orePianificabili, 0)
     };
   }, [filteredJobs]);
 
@@ -216,14 +229,14 @@ export default function JobsPage({ tasks = [], onSwitchPage, onCreateTaskFromJob
           </div>
           <div className="kpi-card">
             <div className="kpi-header">
-              <span className="kpi-label">Ore Pianificate</span>
-              <span className="kpi-value" style={{ color: "#3b82f6" }}>{totals.totalPianificate.toFixed(1)}</span>
+              <span className="kpi-label">Pianificate Aperte</span>
+              <span className="kpi-value" style={{ color: "#3b82f6" }}>{totals.totalPianificateAperte.toFixed(1)}</span>
             </div>
           </div>
           <div className="kpi-card">
             <div className="kpi-header">
-              <span className="kpi-label">Ore Residue</span>
-              <span className="kpi-value">{totals.totalResidue.toFixed(1)}</span>
+              <span className="kpi-label">Ore Pianificabili</span>
+              <span className="kpi-value" style={{ color: "#f59e0b" }}>{totals.totalPianificabili.toFixed(1)}</span>
             </div>
           </div>
         </div>
@@ -307,12 +320,12 @@ export default function JobsPage({ tasks = [], onSwitchPage, onCreateTaskFromJob
               <span>Ore loggate totali</span>
             </div>
             <div className="stat">
-              <strong style={{ color: "#3b82f6" }}>{totals.totalPianificate.toFixed(1)}h</strong>
-              <span>Ore pianificate totali</span>
+              <strong style={{ color: "#3b82f6" }}>{totals.totalPianificateAperte.toFixed(1)}h</strong>
+              <span>Ore pianificate aperte</span>
             </div>
               <div className="stat">
-                <strong>{totals.totalResidue.toFixed(1)}h</strong>
-                <span>Ore residue totali</span>
+                <strong style={{ color: "#f59e0b" }}>{totals.totalPianificabili.toFixed(1)}h</strong>
+                <span>Ore pianificabili totali</span>
               </div>
             </div>
           </div>
@@ -329,8 +342,8 @@ export default function JobsPage({ tasks = [], onSwitchPage, onCreateTaskFromJob
                   <th>Descrizione</th>
                   <th className="number-col">Vendute (h)</th>
                   <th className="number-col">Loggate (h)</th>
-                  <th className="number-col">Pianificate (h)</th>
-                  <th className="number-col">Rimanenti (h)</th>
+                  <th className="number-col">Pianif. aperte (h)</th>
+                  <th className="number-col">Pianificabili (h)</th>
                   <th className="actions-col">Azioni</th>
                 </tr>
               </thead>
@@ -348,13 +361,13 @@ export default function JobsPage({ tasks = [], onSwitchPage, onCreateTaskFromJob
                       <td className="number-col">{job.quantity.toFixed(1)}</td>
                       <td className="number-col">{job.ogreLoggate.toFixed(1)}</td>
                       <td className="number-col">
-                        <span style={{ color: job.orePianificate > 0 ? "#3b82f6" : "#94a3b8", fontWeight: job.orePianificate > 0 ? "600" : "normal" }}>
-                          {job.orePianificate.toFixed(1)}
+                        <span style={{ color: job.orePianificateAperte > 0 ? "#3b82f6" : "#94a3b8", fontWeight: job.orePianificateAperte > 0 ? "600" : "normal" }}>
+                          {job.orePianificateAperte.toFixed(1)}
                         </span>
                       </td>
                       <td className="number-col">
-                        <span style={{ color: job.oreResidue > 0 ? "#f59e0b" : "#10b981", fontWeight: "600" }}>
-                          {job.oreResidue.toFixed(1)}
+                        <span style={{ color: job.orePianificabili > 0 ? "#f59e0b" : "#10b981", fontWeight: "600" }}>
+                          {job.orePianificabili.toFixed(1)}
                         </span>
                       </td>
                       <td className="actions-col">
@@ -375,8 +388,8 @@ export default function JobsPage({ tasks = [], onSwitchPage, onCreateTaskFromJob
                     const groupTotals = {
                       vendute: groupJobs.reduce((sum, j) => sum + j.quantity, 0),
                       loggate: groupJobs.reduce((sum, j) => sum + j.ogreLoggate, 0),
-                      pianificate: groupJobs.reduce((sum, j) => sum + j.orePianificate, 0),
-                      residue: groupJobs.reduce((sum, j) => sum + j.oreResidue, 0)
+                      pianificateAperte: groupJobs.reduce((sum, j) => sum + j.orePianificateAperte, 0),
+                      pianificabili: groupJobs.reduce((sum, j) => sum + j.orePianificabili, 0)
                     };
                     
                     return [
@@ -390,8 +403,8 @@ export default function JobsPage({ tasks = [], onSwitchPage, onCreateTaskFromJob
                         </td>
                         <td className="number-col" style={{ fontWeight: "600" }}>{groupTotals.vendute.toFixed(1)}</td>
                         <td className="number-col" style={{ fontWeight: "600" }}>{groupTotals.loggate.toFixed(1)}</td>
-                        <td className="number-col" style={{ fontWeight: "600", color: "#3b82f6" }}>{groupTotals.pianificate.toFixed(1)}</td>
-                        <td className="number-col" style={{ fontWeight: "600" }}>{groupTotals.residue.toFixed(1)}</td>
+                        <td className="number-col" style={{ fontWeight: "600", color: "#3b82f6" }}>{groupTotals.pianificateAperte.toFixed(1)}</td>
+                        <td className="number-col" style={{ fontWeight: "600", color: "#f59e0b" }}>{groupTotals.pianificabili.toFixed(1)}</td>
                         <td></td>
                       </tr>,
                       // Righe del gruppo
@@ -406,13 +419,13 @@ export default function JobsPage({ tasks = [], onSwitchPage, onCreateTaskFromJob
                           <td className="number-col">{job.quantity.toFixed(1)}</td>
                           <td className="number-col">{job.ogreLoggate.toFixed(1)}</td>
                           <td className="number-col">
-                            <span style={{ color: job.orePianificate > 0 ? "#3b82f6" : "#94a3b8", fontWeight: job.orePianificate > 0 ? "600" : "normal" }}>
-                              {job.orePianificate.toFixed(1)}
+                            <span style={{ color: job.orePianificateAperte > 0 ? "#3b82f6" : "#94a3b8", fontWeight: job.orePianificateAperte > 0 ? "600" : "normal" }}>
+                              {job.orePianificateAperte.toFixed(1)}
                             </span>
                           </td>
                           <td className="number-col">
-                            <span style={{ color: job.oreResidue > 0 ? "#f59e0b" : "#10b981", fontWeight: "600" }}>
-                              {job.oreResidue.toFixed(1)}
+                            <span style={{ color: job.orePianificabili > 0 ? "#f59e0b" : "#10b981", fontWeight: "600" }}>
+                              {job.orePianificabili.toFixed(1)}
                             </span>
                           </td>
                           <td className="actions-col">

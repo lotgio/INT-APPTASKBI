@@ -21,7 +21,9 @@ interface Job {
   parentChainName?: string;
   quantity: number;
   ogreLoggate: number;
-  oreResidue: number;
+  orePianificate: number;
+  oreResidueUfficiali: number;
+  orePianificabili: number;
 }
 
 export default function App() {

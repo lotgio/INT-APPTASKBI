@@ -11,7 +11,10 @@ interface Job {
   parentChainName?: string;
   quantity: number;
   ogreLoggate: number;
-  oreResidue: number;
+  orePianificate: number;
+  orePianificateAperte: number;
+  oreResidueUfficiali: number;
+  orePianificabili: number;
 }
 
 interface Props {
@@ -37,8 +40,8 @@ export default function TaskFromJobModal({ job, members, onTaskCreated, onClose 
       return;
     }
 
-    if (hours > job.oreResidue) {
-      setError(`Non puoi pianificare più ore di quelle residue (${job.oreResidue.toFixed(1)}h disponibili)`);
+    if (hours > job.orePianificabili) {
+      setError(`Non puoi pianificare più ore di quelle pianificabili (${job.orePianificabili.toFixed(1)}h disponibili)`);
       return;
     }
 
@@ -78,7 +81,12 @@ export default function TaskFromJobModal({ job, members, onTaskCreated, onClose 
               <div><strong>Job No:</strong> {job.jobNo}</div>
               <div><strong>Cliente:</strong> {job.customerName}</div>
               <div><strong>Division:</strong> {job.division}</div>
-              <div><strong>Ore residue:</strong> <span style={{ color: "#f59e0b", fontWeight: "600" }}>{job.oreResidue.toFixed(1)}h</span></div>
+              <div><strong>Ore vendute:</strong> {job.quantity.toFixed(1)}h</div>
+              <div><strong>Ore loggate (ufficiali):</strong> {job.ogreLoggate.toFixed(1)}h</div>
+              <div><strong>Ore pianificate totali:</strong> {job.orePianificate.toFixed(1)}h</div>
+              <div><strong>Ore pianificate aperte:</strong> {job.orePianificateAperte.toFixed(1)}h</div>
+              <div><strong>Ore residue ufficiali:</strong> {job.oreResidueUfficiali.toFixed(1)}h</div>
+              <div><strong>Ore pianificabili:</strong> <span style={{ color: "#f59e0b", fontWeight: "600" }}>{job.orePianificabili.toFixed(1)}h</span></div>
             </div>
           </div>
 
@@ -89,11 +97,11 @@ export default function TaskFromJobModal({ job, members, onTaskCreated, onClose 
               type="number"
               step="0.5"
               min="0.5"
-              max={job.oreResidue}
+              max={job.orePianificabili}
               value={hours}
               onChange={(event) => setHours(parseFloat(event.target.value) || 0)}
             />
-            <small style={{ color: "#64748b" }}>Max {job.oreResidue.toFixed(1)}h disponibili</small>
+            <small style={{ color: "#64748b" }}>Max {job.orePianificabili.toFixed(1)}h disponibili (vendute - loggate - pianificate aperte)</small>
           </label>
 
           <label>
