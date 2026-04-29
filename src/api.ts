@@ -2,13 +2,17 @@ import type { Member, Task, TodoItem } from "./types";
 import { mockJobs } from "./mockJobs";
 import { supabase } from "./supabaseClient";
 
-const API_BASE = "/api";
+const RAW_API_BASE = (((import.meta as any)?.env?.VITE_API_BASE || "/api") as string).trim();
+const API_BASE = RAW_API_BASE.endsWith("/") ? RAW_API_BASE.slice(0, -1) : RAW_API_BASE;
 // Usa localStorage SOLO se esplicitamente richiesto (es. GitHub Pages)
 const USE_LOCAL_STORAGE = (import.meta as any)?.env?.VITE_USE_LOCAL_STORAGE === "true";
 // Usa Supabase se configurato (nuovo default)
 const USE_SUPABASE = !!supabase;
 const IS_GITHUB_PAGES = typeof window !== "undefined" && window.location.hostname.endsWith("github.io");
-const USE_MOCK_JOBS = USE_LOCAL_STORAGE || IS_GITHUB_PAGES;
+const USE_MOCK_JOBS = USE_LOCAL_STORAGE;
+const ALLOW_STATIC_JOBS_FALLBACK =
+  USE_LOCAL_STORAGE ||
+  (import.meta as any)?.env?.VITE_ALLOW_STATIC_JOBS_FALLBACK === "true";
 const JOBS_REMOTE_URL = ((import.meta as any)?.env?.VITE_JOBS_URL || "").trim();
 const BASE_URL = ((import.meta as any)?.env?.BASE_URL || "/") as string;
 let jobsCache: any[] | null = null;
@@ -355,7 +359,7 @@ export async function deleteTask(id: string): Promise<{ ok: true } | { ok: false
 export async function getJobs(options?: { limit?: number; offset?: number; search?: string; division?: string; resourceNo?: string; excludeTrasferta?: boolean; excludeMatching?: boolean }): Promise<any[]> {
   console.log("🔍 getJobs() chiamato con opzioni:", options);
   
-  // Su GitHub Pages (o localStorage mode), usa jobs.json pubblicato (sincronizzato da Azure Blob)
+  // In localStorage mode usa jobs.json pubblicato (sincronizzato da Azure Blob)
   if (USE_MOCK_JOBS) {
     const jobs = await loadPublishedJobs();
     return filterAndPaginateJobs(jobs, options);
@@ -389,8 +393,12 @@ export async function getJobs(options?: { limit?: number; offset?: number; searc
     return result.data || [];
   } catch (err) {
     console.error("❌ Errore caricamento jobs:", err);
-    const jobs = await loadPublishedJobs();
-    return filterAndPaginateJobs(jobs, options);
+    if (ALLOW_STATIC_JOBS_FALLBACK) {
+      console.warn("⚠️ Fallback a jobs.json statico abilitato");
+      const jobs = await loadPublishedJobs();
+      return filterAndPaginateJobs(jobs, options);
+    }
+    throw err;
   }
 }
 
@@ -402,12 +410,17 @@ export async function getJobsStats(): Promise<{ total: number; divisions: string
   }
   
   try {
-    const response = await fetch("/api/jobs/stats");
+    const response = await fetch(`${API_BASE}/jobs/stats`);
     if (!response.ok) throw new Error("Errore stats");
     return response.json();
   } catch (err) {
     console.error("❌ Errore stats:", err);
-    return { total: 0, divisions: [] };
+    if (ALLOW_STATIC_JOBS_FALLBACK) {
+      const jobs = await loadPublishedJobs();
+      const divisions = Array.from(new Set(jobs.map((j: any) => j.Division).filter(Boolean)));
+      return { total: jobs.length, divisions };
+    }
+    throw err;
   }
 }
 
