@@ -9,7 +9,7 @@ const USE_LOCAL_STORAGE = (import.meta as any)?.env?.VITE_USE_LOCAL_STORAGE === 
 // Usa Supabase se configurato (nuovo default)
 const USE_SUPABASE = !!supabase;
 const IS_GITHUB_PAGES = typeof window !== "undefined" && window.location.hostname.endsWith("github.io");
-const USE_MOCK_JOBS = USE_LOCAL_STORAGE;
+const USE_MOCK_JOBS = USE_LOCAL_STORAGE || IS_GITHUB_PAGES;
 const ALLOW_STATIC_JOBS_FALLBACK =
   USE_LOCAL_STORAGE ||
   (import.meta as any)?.env?.VITE_ALLOW_STATIC_JOBS_FALLBACK === "true";
