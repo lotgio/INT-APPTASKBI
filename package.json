@@ -13,7 +13,7 @@
     "start": "node dist/server/server.js",
     "seed": "tsx seed.ts",
     "sync-jobs-azure": "if exist .venv\\Scripts\\python.exe (.venv\\Scripts\\python.exe sync-jobs.py) else (python sync-jobs.py)",
-    "deploy": "npm run sync-jobs-azure && set \"VITE_BASE=/INT-APPTASKBI/\" && set \"VITE_API_BASE=https://apptaskbi.azurewebsites.net/api\" && set \"VITE_SUPABASE_URL=https://teadzgcurjjdbuoohakr.supabase.co\" && set \"VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlYWR6Z2N1cmpqZGJ1b29oYWtyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0NTk4MDgsImV4cCI6MjA4ODAzNTgwOH0.PqyePbd6FISVUmAi4If41BCM_QpTpCr-7HkhENnE7IE\" && npm run build && npx gh-pages -d dist",
+    "deploy": "npm run sync-jobs-azure && set \"VITE_BASE=/INT-APPTASKBI/\" && set \"VITE_ALLOW_STATIC_JOBS_FALLBACK=true\" && set \"VITE_SUPABASE_URL=https://teadzgcurjjdbuoohakr.supabase.co\" && set \"VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlYWR6Z2N1cmpqZGJ1b29oYWtyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0NTk4MDgsImV4cCI6MjA4ODAzNTgwOH0.PqyePbd6FISVUmAi4If41BCM_QpTpCr-7HkhENnE7IE\" && npm run build && npx gh-pages -d dist",
     "import": "tsx import-data.ts",
     "import-supabase": "tsx import-supabase.ts"
   },

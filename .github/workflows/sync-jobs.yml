@@ -52,6 +52,7 @@ jobs:
       - name: Build application
         run: |
           export VITE_BASE=/INT-APPTASKBI/
+          export VITE_ALLOW_STATIC_JOBS_FALLBACK=true
           export VITE_SUPABASE_URL=https://teadzgcurjjdbuoohakr.supabase.co
           export VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlYWR6Z2N1cmpqZGJ1b29oYWtyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0NTk4MDgsImV4cCI6MjA4ODAzNTgwOH0.PqyePbd6FISVUmAi4If41BCM_QpTpCr-7HkhENnE7IE
           npm run build
