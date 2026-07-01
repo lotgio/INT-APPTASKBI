@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
-import { getJobs, getJobsDataLastUpdate, syncJobsFromAzure } from "./api";
+import { dispatchSyncJobsWorkflowWithToken, getJobs, getJobsDataLastUpdate, syncJobsFromAzure } from "./api";
 import type { Task } from "./types";
 
 interface Props {
@@ -168,9 +168,30 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
       setNotice(null);
       setError(null);
 
-      const result = await syncJobsFromAzure();
-      setNotice(result.message || "Aggiornamento dati completato");
-      await loadData();
+      try {
+        const result = await syncJobsFromAzure();
+        setNotice(result.message || "Aggiornamento dati completato");
+        await loadData();
+      } catch (syncErr) {
+        const syncMessage = syncErr instanceof Error ? syncErr.message : "";
+        const isStaticMode = syncMessage.toLowerCase().includes("modalità statica") || syncMessage.toLowerCase().includes("modalita statica");
+
+        if (!isStaticMode) {
+          throw syncErr;
+        }
+
+        const token = window.prompt(
+          "Modalita statica: inserisci un GitHub PAT con permesso Actions:write sul repo lotgio/INT-APPTASKBI per avviare la sync workflow."
+        );
+
+        if (!token) {
+          setNotice("Sync annullata: token non inserito.");
+          return;
+        }
+
+        const dispatchResult = await dispatchSyncJobsWorkflowWithToken(token);
+        setNotice(dispatchResult.message);
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Errore aggiornamento dati da CRM";
       setError(msg);

@@ -461,6 +461,40 @@ export async function syncJobsFromAzure(): Promise<{ ok: boolean; message: strin
   }
 }
 
+export async function dispatchSyncJobsWorkflowWithToken(token: string): Promise<{ ok: boolean; message: string }> {
+  const trimmedToken = token.trim();
+  if (!trimmedToken) {
+    throw new Error("Token GitHub mancante");
+  }
+
+  const response = await fetch("https://api.github.com/repos/lotgio/INT-APPTASKBI/actions/workflows/sync-jobs.yml/dispatches", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Accept": "application/vnd.github+json",
+      "Authorization": `Bearer ${trimmedToken}`
+    },
+    body: JSON.stringify({
+      ref: "main"
+    })
+  });
+
+  if (!response.ok) {
+    let details = "";
+    try {
+      details = await response.text();
+    } catch {
+      details = "";
+    }
+    throw new Error(details || `Errore trigger workflow GitHub (${response.status})`);
+  }
+
+  return {
+    ok: true,
+    message: "Sync avviata via GitHub Actions. Attendi 1-2 minuti per il deploy aggiornato."
+  };
+}
+
 export async function getJobsDataLastUpdate(): Promise<string | null> {
   try {
     const response = await fetch(getJobsSourceUrl(), {
