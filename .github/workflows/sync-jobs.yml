@@ -71,7 +71,8 @@ jobs:
           fi
 
       - name: Print sync source used
-        run: echo "Sync source used: $SYNC_SOURCE"
+        run: |
+          echo "Sync source used: $SYNC_SOURCE"
       
       - name: Build application
         run: |
