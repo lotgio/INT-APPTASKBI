@@ -31,6 +31,7 @@ interface JobAggregate {
 
 const HOURS_PER_DAY = 8;
 const PAGE_SIZE = 1000;
+type DivisionScope = "owned" | "all";
 
 function toNumber(value: unknown): number {
   const num = Number(value);
@@ -92,6 +93,7 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<string | null>(null);
   const [filterText, setFilterText] = useState("");
+  const [divisionScope, setDivisionScope] = useState<DivisionScope>("owned");
   const [expandedJobs, setExpandedJobs] = useState<Record<string, boolean>>({});
 
   const plannedHoursByJob = useMemo(() => {
@@ -113,10 +115,11 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
         let offset = 0;
 
         while (true) {
+          const loadAllDivisions = divisionScope === "all";
           const chunk = await getJobs({
             limit: PAGE_SIZE,
             offset,
-            resourceNo: "CGSSWPOW"
+            ...(loadAllDivisions ? {} : { resourceNo: "CGSSWPOW" })
           });
 
           rows.push(...chunk);
@@ -155,7 +158,7 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
     };
 
     load();
-  }, [plannedHoursByJob]);
+  }, [plannedHoursByJob, divisionScope]);
 
   const filteredLines = useMemo(() => {
     const term = filterText.trim().toLowerCase();
@@ -272,6 +275,9 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
           <p className="subtitle">
             Ultimo aggiornamento dati: <strong>{formatLastUpdate(lastUpdate)}</strong>
           </p>
+          <p className="subtitle" style={{ marginTop: "4px" }}>
+            Ambito righe: <strong>{divisionScope === "all" ? "Tutte le divisioni (modalita PM)" : "Divisione standard"}</strong>
+          </p>
         </div>
         <div className="stats">
           <div className="kpi-card">
@@ -321,6 +327,16 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
 
         <div className="database-controls">
           <div className="sort-controls">
+            <label>
+              Ambito divisioni
+              <select
+                value={divisionScope}
+                onChange={(e) => setDivisionScope(e.target.value as DivisionScope)}
+              >
+                <option value="owned">Solo divisione standard</option>
+                <option value="all">Tutte le divisioni (PM)</option>
+              </select>
+            </label>
             <label>
               Cerca commessa / cliente / descrizione / divisione
               <input
