@@ -87,6 +87,26 @@ function ProgressBarCell({ loggedHours, soldHours }: { loggedHours: number; sold
   );
 }
 
+function escapeXml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+function xmlCell(value: string | number, type: "String" | "Number", styleId = "Cell"): string {
+  const data = type === "String" ? escapeXml(String(value)) : String(value);
+  return `<Cell ss:StyleID="${styleId}"><Data ss:Type="${type}">${data}</Data></Cell>`;
+}
+
+function fileTimestamp(): string {
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}`;
+}
+
 export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
   const [jobLines, setJobLines] = useState<JobLine[]>([]);
   const [loading, setLoading] = useState(true);
@@ -97,6 +117,7 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
   const [filterText, setFilterText] = useState("");
   const [divisionScope, setDivisionScope] = useState<DivisionScope>("owned");
   const [expandedJobs, setExpandedJobs] = useState<Record<string, boolean>>({});
+  const [isExporting, setIsExporting] = useState(false);
 
   const plannedHoursByJob = useMemo(() => {
     const map: Record<string, number> = {};
@@ -324,6 +345,188 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
     setExpandedJobs({});
   };
 
+  const handleExportExcel = () => {
+    try {
+      setIsExporting(true);
+      setError(null);
+      setNotice(null);
+
+      const nowIso = new Date().toISOString();
+      const summaryRows = aggregates.map((job) => {
+        const remainingHours = job.soldHours - job.loggedHours;
+        const remainingDays = remainingHours / HOURS_PER_DAY;
+        const progress = getProgressPercent(job.loggedHours, job.soldHours);
+        const progressStyle = progress > 100 ? "NegativeNumber" : "Number";
+
+        return [
+          xmlCell(job.jobNo || "-", "String"),
+          xmlCell(job.customerName || "-", "String"),
+          xmlCell(job.mainDescription || "-", "String"),
+          xmlCell(job.division || "-", "String"),
+          xmlCell(job.soldHours, "Number"),
+          xmlCell(job.loggedHours, "Number"),
+          xmlCell(progress, "Number", progressStyle),
+          xmlCell(remainingHours, "Number", remainingHours < 0 ? "NegativeNumber" : "Number"),
+          xmlCell(remainingDays, "Number", remainingDays < 0 ? "NegativeNumber" : "Number")
+        ].join("");
+      });
+
+      const detailRows = filteredLines.map((line) => {
+        const remainingHours = line.soldHours - line.loggedHours;
+        const remainingDays = remainingHours / HOURS_PER_DAY;
+        const progress = getProgressPercent(line.loggedHours, line.soldHours);
+
+        return [
+          xmlCell(line.jobNo || "-", "String"),
+          xmlCell(line.jobPlanNo || "-", "String"),
+          xmlCell(line.customerName || "-", "String"),
+          xmlCell(line.division || "-", "String"),
+          xmlCell(line.mainDescription || "-", "String"),
+          xmlCell(line.planDescription || "-", "String"),
+          xmlCell(line.soldHours, "Number"),
+          xmlCell(line.loggedHours, "Number"),
+          xmlCell(progress, "Number", progress > 100 ? "NegativeNumber" : "Number"),
+          xmlCell(remainingHours, "Number", remainingHours < 0 ? "NegativeNumber" : "Number"),
+          xmlCell(remainingDays, "Number", remainingDays < 0 ? "NegativeNumber" : "Number")
+        ].join("");
+      });
+
+      const workbookXml = `<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:html="http://www.w3.org/TR/REC-html40">
+ <Styles>
+  <Style ss:ID="Default" ss:Name="Normal">
+   <Alignment ss:Vertical="Center"/>
+   <Font ss:FontName="Segoe UI" ss:Size="10" ss:Color="#0f172a"/>
+   <Interior ss:Color="#FFFFFF" ss:Pattern="Solid"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
+   </Borders>
+  </Style>
+  <Style ss:ID="Title" ss:Parent="Default">
+   <Font ss:FontName="Segoe UI" ss:Size="14" ss:Bold="1" ss:Color="#0f172a"/>
+   <Interior ss:Color="#E2E8F0" ss:Pattern="Solid"/>
+  </Style>
+  <Style ss:ID="Header" ss:Parent="Default">
+   <Font ss:FontName="Segoe UI" ss:Size="10" ss:Bold="1" ss:Color="#FFFFFF"/>
+   <Interior ss:Color="#1E293B" ss:Pattern="Solid"/>
+  </Style>
+  <Style ss:ID="Cell" ss:Parent="Default"/>
+  <Style ss:ID="Number" ss:Parent="Default">
+   <NumberFormat ss:Format="0.0"/>
+  </Style>
+  <Style ss:ID="NegativeNumber" ss:Parent="Number">
+   <Font ss:Color="#B91C1C"/>
+  </Style>
+ </Styles>
+ <Worksheet ss:Name="Riepilogo">
+  <Table>
+   <Column ss:Width="100"/>
+   <Column ss:Width="180"/>
+   <Column ss:Width="240"/>
+   <Column ss:Width="90"/>
+   <Column ss:Width="90"/>
+   <Column ss:Width="90"/>
+   <Column ss:Width="95"/>
+   <Column ss:Width="110"/>
+   <Column ss:Width="115"/>
+   <Row>
+    ${xmlCell("Avanzamento Commesse", "String", "Title")}
+   </Row>
+   <Row>
+    ${xmlCell(`Generato il: ${nowIso}`, "String")}
+   </Row>
+   <Row>
+    ${xmlCell(`Filtro testo: ${filterText || "(nessuno)"}`, "String")}
+   </Row>
+   <Row>
+    ${xmlCell(`Ambito divisioni: ${divisionScope === "all" ? "Tutte le divisioni (PM)" : "Divisione standard"}`, "String")}
+   </Row>
+   <Row>
+    ${xmlCell(`Ultimo aggiornamento sorgente: ${formatLastUpdate(lastUpdate)}`, "String")}
+   </Row>
+   <Row>
+    ${xmlCell(`Totale commesse: ${aggregates.length}`, "String")}
+    ${xmlCell(`Totale righe: ${filteredLines.length}`, "String")}
+    ${xmlCell(`Ore vendute: ${totals.soldHours.toFixed(1)}`, "String")}
+    ${xmlCell(`Ore loggate: ${totals.loggedHours.toFixed(1)}`, "String")}
+    ${xmlCell(`Ore rimanenti: ${totals.remainingHours.toFixed(1)}`, "String")}
+    ${xmlCell(`Giorni rimanenti: ${totals.remainingDays.toFixed(1)}`, "String")}
+   </Row>
+   <Row>
+    ${xmlCell("Commessa", "String", "Header")}
+    ${xmlCell("Cliente", "String", "Header")}
+    ${xmlCell("Descrizione principale", "String", "Header")}
+    ${xmlCell("Division", "String", "Header")}
+    ${xmlCell("Venduto", "String", "Header")}
+    ${xmlCell("Loggato", "String", "Header")}
+    ${xmlCell("Avanzamento %", "String", "Header")}
+    ${xmlCell("Ore rimanenti", "String", "Header")}
+    ${xmlCell("Giorni rimanenti", "String", "Header")}
+   </Row>
+   ${summaryRows.map((row) => `<Row>${row}</Row>`).join("\n")}
+  </Table>
+ </Worksheet>
+ <Worksheet ss:Name="Dettaglio Righe">
+  <Table>
+   <Column ss:Width="100"/>
+   <Column ss:Width="80"/>
+   <Column ss:Width="180"/>
+   <Column ss:Width="90"/>
+   <Column ss:Width="240"/>
+   <Column ss:Width="240"/>
+   <Column ss:Width="90"/>
+   <Column ss:Width="90"/>
+   <Column ss:Width="95"/>
+   <Column ss:Width="110"/>
+   <Column ss:Width="115"/>
+   <Row>
+    ${xmlCell("Dettaglio righe commessa", "String", "Title")}
+   </Row>
+   <Row>
+    ${xmlCell("Commessa", "String", "Header")}
+    ${xmlCell("Riga", "String", "Header")}
+    ${xmlCell("Cliente", "String", "Header")}
+    ${xmlCell("Division", "String", "Header")}
+    ${xmlCell("Descrizione principale", "String", "Header")}
+    ${xmlCell("Descrizione riga", "String", "Header")}
+    ${xmlCell("Venduto", "String", "Header")}
+    ${xmlCell("Loggato", "String", "Header")}
+    ${xmlCell("Avanzamento %", "String", "Header")}
+    ${xmlCell("Ore rimanenti", "String", "Header")}
+    ${xmlCell("Giorni rimanenti", "String", "Header")}
+   </Row>
+   ${detailRows.map((row) => `<Row>${row}</Row>`).join("\n")}
+  </Table>
+ </Worksheet>
+</Workbook>`;
+
+      const blob = new Blob([workbookXml], { type: "application/vnd.ms-excel;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `avanzamento_commesse_${fileTimestamp()}.xml`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      setNotice("Export Excel completato: file XML compatibile Excel scaricato.");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Errore durante export Excel";
+      setError(msg);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="page">
       <header className="hero">
@@ -409,6 +612,9 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
           <div className="job-progress-actions">
             <button className="secondary" onClick={handleManualRefresh} disabled={isRefreshing}>
               {isRefreshing ? "Aggiornamento..." : "Aggiorna da CRM"}
+            </button>
+            <button className="secondary" onClick={handleExportExcel} disabled={isExporting || loading}>
+              {isExporting ? "Export..." : "Esporta Excel"}
             </button>
             <button className="secondary" onClick={handleExpandAll}>Espandi tutte</button>
             <button className="secondary" onClick={handleCollapseAll}>Chiudi tutte</button>
