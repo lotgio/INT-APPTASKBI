@@ -10,6 +10,7 @@ import JobsPage from "./JobsPage";
 import TaskFromJobModal from "./TaskFromJobModal";
 import TaskResourceViewPage from "./TaskResourceViewPage";
 import TodoPage from "./TodoPage";
+import JobProgressPage from "./JobProgressPage";
 import "./App.css";
 
 interface Job {
@@ -27,7 +28,7 @@ interface Job {
 }
 
 export default function App() {
-  const [page, setPage] = useState<"create" | "team" | "manage" | "database" | "stats" | "jobs" | "todo">("manage");
+  const [page, setPage] = useState<"create" | "team" | "manage" | "database" | "stats" | "jobs" | "todo" | "job-progress">("manage");
   const [tasks, setTasks] = useState<Task[]>([]);
   const [todos, setTodos] = useState<TodoItem[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
@@ -170,6 +171,20 @@ export default function App() {
         >
           Jobs
         </button>
+        <button
+          onClick={() => setPage("job-progress")}
+          style={{
+            padding: "8px 16px",
+            backgroundColor: page === "job-progress" ? "#0f172a" : "white",
+            color: page === "job-progress" ? "white" : "#0f172a",
+            border: "1px solid #ccc",
+            borderRadius: "4px",
+            cursor: "pointer",
+            fontSize: "14px",
+          }}
+        >
+          Avanzamento
+        </button>
       </div>
       {page === "create" ? (
         <TaskCreatePage
@@ -201,6 +216,11 @@ export default function App() {
           onCreateTaskFromJob={(job) => {
             setSelectedJob(job);
           }}
+        />
+      ) : page === "job-progress" ? (
+        <JobProgressPage
+          tasks={tasks}
+          onSwitchPage={(nextPage) => setPage(nextPage)}
         />
       ) : page === "manage" ? (
         <TaskManagePage

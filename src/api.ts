@@ -17,6 +17,10 @@ const JOBS_REMOTE_URL = ((import.meta as any)?.env?.VITE_JOBS_URL || "").trim();
 const BASE_URL = ((import.meta as any)?.env?.BASE_URL || "/") as string;
 let jobsCache: any[] | null = null;
 
+function getJobsSourceUrl(): string {
+  return JOBS_REMOTE_URL || "./jobs.json";
+}
+
 const STORAGE_KEYS = {
   members: "apptaskbi_members",
   tasks: "apptaskbi_tasks"
@@ -79,7 +83,7 @@ function filterAndPaginateJobs(jobs: any[], options?: { limit?: number; offset?:
 async function loadPublishedJobs(): Promise<any[]> {
   if (jobsCache) return jobsCache;
 
-  const url = JOBS_REMOTE_URL || "./jobs.json";
+  const url = getJobsSourceUrl();
   const response = await fetch(url, { cache: "no-store" });
   if (!response.ok) {
     throw new Error(`Errore jobs source: ${response.status}`);
@@ -454,6 +458,23 @@ export async function syncJobsFromAzure(): Promise<{ ok: boolean; message: strin
     const msg = err instanceof Error ? err.message : "Errore sconosciuto";
     console.error("❌ Errore sincronizzazione:", msg);
     throw err;
+  }
+}
+
+export async function getJobsDataLastUpdate(): Promise<string | null> {
+  try {
+    const response = await fetch(getJobsSourceUrl(), {
+      method: "HEAD",
+      cache: "no-store"
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    return response.headers.get("last-modified");
+  } catch {
+    return null;
   }
 }
 
