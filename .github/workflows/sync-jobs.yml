@@ -1,4 +1,4 @@
-name: Sync Jobs from Azure Blob
+name: Sync Jobs (Direct CRM/NAV with Azure fallback)
 
 permissions:
   contents: write
@@ -35,7 +35,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pandas pyarrow azure-storage-blob python-dotenv
+          pip install -r requirements.txt
       
       - name: Install Node dependencies
         run: npm install
@@ -47,10 +47,31 @@ jobs:
           AZURE_STORAGE_KEY=${{ secrets.AZURE_STORAGE_KEY }}
           AZURE_STORAGE_CONTAINER=${{ secrets.AZURE_STORAGE_CONTAINER }}
           AZURE_STORAGE_BLOB=${{ secrets.AZURE_STORAGE_BLOB }}
+          CRM_SQL_SERVER=${{ secrets.CRM_SQL_SERVER }}
+          CRM_SQL_DATABASE=${{ secrets.CRM_SQL_DATABASE }}
+          CRM_SQL_USER=${{ secrets.CRM_SQL_USER }}
+          CRM_SQL_PASSWORD=${{ secrets.CRM_SQL_PASSWORD }}
+          CRM_SQL_DRIVER=${{ secrets.CRM_SQL_DRIVER }}
+          NAV_SQL_SERVER=${{ secrets.NAV_SQL_SERVER }}
+          NAV_SQL_DATABASE=${{ secrets.NAV_SQL_DATABASE }}
+          NAV_COMPANY_NAME=${{ secrets.NAV_COMPANY_NAME }}
+          JOBS_MIN_YEAR=${{ secrets.JOBS_MIN_YEAR }}
           EOF
-      
-      - name: Sync jobs from Azure
-        run: python sync-jobs.py
+
+      - name: Sync jobs (direct source first, Azure fallback)
+        run: |
+          echo "Trying direct CRM/NAV sync..."
+          if python sync-jobs-direct.py; then
+            echo "SYNC_SOURCE=direct" >> $GITHUB_ENV
+            echo "Direct sync completed"
+          else
+            echo "Direct sync failed, using Azure fallback"
+            python sync-jobs.py
+            echo "SYNC_SOURCE=azure-fallback" >> $GITHUB_ENV
+          fi
+
+      - name: Print sync source used
+        run: echo "Sync source used: $SYNC_SOURCE"
       
       - name: Build application
         run: |

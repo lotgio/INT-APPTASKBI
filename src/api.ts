@@ -524,7 +524,7 @@ export async function dispatchSyncJobsWorkflowWithToken(token: string): Promise<
 
   return {
     ok: true,
-    message: "Sync avviata via GitHub Actions. Attendi 1-2 minuti per il deploy aggiornato."
+    message: "Sync avviata via GitHub Actions. Attendi 3-5 minuti: il pulsante in GitHub Pages aggiorna i dati solo dopo il completamento della workflow e del deploy."
   };
 }
 
