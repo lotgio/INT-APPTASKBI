@@ -461,6 +461,39 @@ export async function syncJobsFromAzure(): Promise<{ ok: boolean; message: strin
   }
 }
 
+export async function syncJobsFromPrimarySource(): Promise<{ ok: boolean; message: string; source?: string }> {
+  console.log("🔄 Sincronizzazione commesse da fonte principale richiesta...");
+
+  if (USE_MOCK_JOBS) {
+    console.log("📦 Modalità localStorage: sincronizzazione non disponibile");
+    return { ok: true, message: "Sincronizzazione non disponibile in modalità statica. Usando dati mock.", source: "static" };
+  }
+
+  try {
+    const response = await fetch(`${API_BASE}/sync-jobs`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ source: "direct" })
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.details || error.error || `Errore HTTP ${response.status}`);
+    }
+
+    const result = await response.json();
+    const message = result.message || "Aggiornamento dati completato";
+    console.log("✅ Sincronizzazione completata:", message);
+    return { ok: true, message, source: result.source };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Errore sconosciuto";
+    console.error("❌ Errore sincronizzazione fonte principale:", msg);
+    throw err;
+  }
+}
+
 export async function dispatchSyncJobsWorkflowWithToken(token: string): Promise<{ ok: boolean; message: string }> {
   const trimmedToken = token.trim();
   if (!trimmedToken) {

@@ -153,6 +153,24 @@ def load_jobs_cache():
         print(f"❌ Errore caricamento jobs cache: {e}")
         return []
 
+def run_sync_script(script_name, timeout=120):
+    """Esegue uno script di sync e restituisce output standardizzato."""
+    python_exe = sys.executable
+    result = subprocess.run(
+        [python_exe, script_name],
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+        encoding='utf-8',
+        errors='replace'
+    )
+    return {
+        'ok': result.returncode == 0,
+        'code': result.returncode,
+        'stdout': result.stdout or '',
+        'stderr': result.stderr or ''
+    }
+
 @app.route('/api/jobs', methods=['GET'])
 def get_jobs_paginated():
     """
@@ -257,29 +275,61 @@ def serve_static(path):
 # Endpoint per sincronizzare le commesse da Azure (ricarica manuale)
 @app.route('/api/sync-jobs', methods=['POST'])
 def sync_jobs_endpoint():
-    """Sincronizza le commesse da Azure Blob Storage"""
+    """Sincronizza le commesse con priorita fonte principale CRM/NAV."""
+    global _jobs_cache
     try:
         print("📥 Sincronizzazione commesse richiesta...")
-        
-        # Esegui lo script di sincronizzazione
-        python_exe = sys.executable
-        result = subprocess.run(
-            [python_exe, 'sync-jobs.py'],
-            capture_output=True,
-            text=True,
-            timeout=60
-        )
-        
-        if result.returncode != 0:
-            print(f"⚠️  Errore sincronizzazione: {result.stderr}")
-            return jsonify({'error': 'Sincronizzazione fallita', 'details': result.stderr}), 500
-        
-        print("✅ Sincronizzazione completata")
+
+        body = request.get_json(silent=True) or {}
+        requested_source = str(body.get('source', 'direct')).strip().lower()
+
+        if requested_source == 'azure':
+            azure_sync = run_sync_script('sync-jobs.py', timeout=120)
+            if not azure_sync['ok']:
+                print(f"⚠️  Errore sincronizzazione Azure: {azure_sync['stderr']}")
+                return jsonify({'error': 'Sincronizzazione Azure fallita', 'details': azure_sync['stderr']}), 500
+
+            _jobs_cache = None
+            load_jobs_cache()
+            print("✅ Sincronizzazione Azure completata")
+            return jsonify({
+                'ok': True,
+                'source': 'azure',
+                'message': 'Commesse sincronizzate da Azure Blob',
+                'output': azure_sync['stdout']
+            }), 200
+
+        direct_sync = run_sync_script('sync-jobs-direct.py', timeout=180)
+        if direct_sync['ok']:
+            _jobs_cache = None
+            load_jobs_cache()
+            print("✅ Sincronizzazione direct source completata")
+            return jsonify({
+                'ok': True,
+                'source': 'direct',
+                'message': 'Commesse sincronizzate direttamente da CRM/NAV',
+                'output': direct_sync['stdout']
+            }), 200
+
+        print(f"⚠️  Sync direct fallita, provo fallback Azure: {direct_sync['stderr']}")
+        azure_sync = run_sync_script('sync-jobs.py', timeout=120)
+        if azure_sync['ok']:
+            _jobs_cache = None
+            load_jobs_cache()
+            print("✅ Fallback Azure completato")
+            return jsonify({
+                'ok': True,
+                'source': 'azure-fallback',
+                'message': 'Direct source non disponibile: dati sincronizzati da Azure Blob',
+                'directError': direct_sync['stderr'],
+                'output': azure_sync['stdout']
+            }), 200
+
         return jsonify({
-            'ok': True,
-            'message': 'Commesse sincronizzate con Azure',
-            'output': result.stdout
-        }), 200
+            'error': 'Sincronizzazione fallita (direct + azure fallback)',
+            'directError': direct_sync['stderr'],
+            'azureError': azure_sync['stderr']
+        }), 500
         
     except subprocess.TimeoutExpired:
         return jsonify({'error': 'Timeout durante la sincronizzazione'}), 504
@@ -287,19 +337,16 @@ def sync_jobs_endpoint():
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    # Sincronizza jobs da Azure all'avvio
-    print("📥 Sincronizzazione jobs da Azure al startup...")
+    # Sincronizza jobs al startup (direct source, fallback Azure)
+    print("📥 Sincronizzazione jobs al startup (direct source -> fallback Azure)...")
     try:
-        import subprocess
-        result = subprocess.run(
-            [sys.executable, 'sync-jobs.py'],
-            capture_output=True,
-            text=True,
-            timeout=60,
-            encoding='utf-8',
-            errors='replace'
-        )
-        print(result.stdout if result.returncode == 0 else result.stderr)
+        startup_direct = run_sync_script('sync-jobs-direct.py', timeout=180)
+        if startup_direct['ok']:
+            print(startup_direct['stdout'])
+        else:
+            print("⚠️  Direct source startup fallita, provo Azure fallback...")
+            startup_azure = run_sync_script('sync-jobs.py', timeout=120)
+            print(startup_azure['stdout'] if startup_azure['ok'] else startup_azure['stderr'])
     except Exception as e:
         print(f"⚠️  Sincronizzazione ignorata: {e}")
     

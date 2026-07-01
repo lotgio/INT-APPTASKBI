@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
-import { dispatchSyncJobsWorkflowWithToken, getJobs, getJobsDataLastUpdate, syncJobsFromAzure } from "./api";
+import { dispatchSyncJobsWorkflowWithToken, getJobs, getJobsDataLastUpdate, syncJobsFromPrimarySource } from "./api";
 import type { Task } from "./types";
 
 interface Props {
@@ -169,7 +169,7 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
       setError(null);
 
       try {
-        const result = await syncJobsFromAzure();
+        const result = await syncJobsFromPrimarySource();
         const message = result.message || "Aggiornamento dati completato";
         const staticModeMessage = message.toLowerCase().includes("modalità statica") || message.toLowerCase().includes("modalita statica");
 
