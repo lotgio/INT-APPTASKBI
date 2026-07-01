@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { getJobs, getJobsDataLastUpdate } from "./api";
 import type { Task } from "./types";
 
@@ -89,7 +89,8 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<string | null>(null);
-  const [filterText, setFilterText] = useState("");
+  const [filterJobCode, setFilterJobCode] = useState("");
+  const [expandedJobs, setExpandedJobs] = useState<Record<string, boolean>>({});
 
   const plannedHoursByJob = useMemo(() => {
     const map: Record<string, number> = {};
@@ -154,16 +155,11 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
   }, [plannedHoursByJob]);
 
   const filteredLines = useMemo(() => {
-    const term = filterText.trim().toLowerCase();
+    const term = filterJobCode.trim().toLowerCase();
     if (!term) return jobLines;
 
-    return jobLines.filter((line) =>
-      line.jobNo.toLowerCase().includes(term) ||
-      line.jobPlanNo.toLowerCase().includes(term) ||
-      line.customerName.toLowerCase().includes(term) ||
-      line.planDescription.toLowerCase().includes(term)
-    );
-  }, [jobLines, filterText]);
+    return jobLines.filter((line) => line.jobNo.toLowerCase().includes(term));
+  }, [jobLines, filterJobCode]);
 
   const aggregates = useMemo(() => {
     const map = new Map<string, JobAggregate>();
@@ -192,6 +188,23 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
     return Array.from(map.values()).sort((a, b) => b.jobNo.localeCompare(a.jobNo));
   }, [filteredLines]);
 
+  const linesByJob = useMemo(() => {
+    const map = new Map<string, JobLine[]>();
+
+    filteredLines.forEach((line) => {
+      if (!map.has(line.jobNo)) {
+        map.set(line.jobNo, []);
+      }
+      map.get(line.jobNo)?.push(line);
+    });
+
+    map.forEach((lines) => {
+      lines.sort((a, b) => a.jobPlanNo.localeCompare(b.jobPlanNo));
+    });
+
+    return map;
+  }, [filteredLines]);
+
   const totals = useMemo(() => {
     const soldHours = filteredLines.reduce((sum, line) => sum + line.soldHours, 0);
     const loggedHours = filteredLines.reduce((sum, line) => sum + line.loggedHours, 0);
@@ -204,6 +217,37 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
       remainingDays: remainingHours / HOURS_PER_DAY
     };
   }, [filteredLines]);
+
+  useEffect(() => {
+    setExpandedJobs((prev) => {
+      const next: Record<string, boolean> = {};
+      aggregates.forEach((aggregate) => {
+        if (prev[aggregate.jobNo]) {
+          next[aggregate.jobNo] = true;
+        }
+      });
+      return next;
+    });
+  }, [aggregates]);
+
+  const handleToggleJob = (jobNo: string) => {
+    setExpandedJobs((prev) => ({
+      ...prev,
+      [jobNo]: !prev[jobNo]
+    }));
+  };
+
+  const handleExpandAll = () => {
+    const next: Record<string, boolean> = {};
+    aggregates.forEach((aggregate) => {
+      next[aggregate.jobNo] = true;
+    });
+    setExpandedJobs(next);
+  };
+
+  const handleCollapseAll = () => {
+    setExpandedJobs({});
+  };
 
   return (
     <div className="page">
@@ -264,14 +308,18 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
         <div className="database-controls">
           <div className="sort-controls">
             <label>
-              Filtra commessa / cliente / descrizione
+              Cerca per codice commessa
               <input
                 type="text"
-                placeholder="Es: COAS260820, cliente, descrizione..."
-                value={filterText}
-                onChange={(e) => setFilterText(e.target.value)}
+                placeholder="Es: COAS260820"
+                value={filterJobCode}
+                onChange={(e) => setFilterJobCode(e.target.value)}
               />
             </label>
+          </div>
+          <div className="job-progress-actions">
+            <button className="secondary" onClick={handleExpandAll}>Espandi tutte</button>
+            <button className="secondary" onClick={handleCollapseAll}>Chiudi tutte</button>
           </div>
         </div>
 
@@ -282,7 +330,7 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
         ) : (
           <>
             <section className="job-progress-section">
-              <h3>Avanzamento per commessa</h3>
+              <h3>Avanzamento per commessa (espandi per vedere le righe)</h3>
               <div className="database-table">
                 <table>
                   <thead>
@@ -298,76 +346,35 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
                     </tr>
                   </thead>
                   <tbody>
+                    {aggregates.length === 0 && (
+                      <tr>
+                        <td colSpan={8} style={{ textAlign: "center", color: "#64748b" }}>
+                          Nessuna commessa trovata con il codice cercato.
+                        </td>
+                      </tr>
+                    )}
                     {aggregates.map((job) => {
                       const remainingHours = job.soldHours - job.loggedHours;
                       const remainingDays = remainingHours / HOURS_PER_DAY;
+                      const isExpanded = !!expandedJobs[job.jobNo];
+                      const detailLines = linesByJob.get(job.jobNo) || [];
 
                       return (
-                        <tr key={job.jobNo}>
-                          <td>
-                            <strong>{job.jobNo}</strong>
-                            <div style={{ fontSize: "11px", color: "#64748b" }}>{job.lineCount} righe</div>
-                          </td>
-                          <td>{job.customerName || "-"}</td>
-                          <td>{job.division || "-"}</td>
-                          <td className="number-col">{formatHours(job.soldHours)}</td>
-                          <td className="number-col">{formatHours(job.loggedHours)}</td>
-                          <td>
-                            <ProgressBarCell loggedHours={job.loggedHours} soldHours={job.soldHours} />
-                          </td>
-                          <td className="number-col">
-                            <span className={remainingHours < 0 ? "job-progress-negative" : ""}>
-                              {formatHours(remainingHours)}
-                            </span>
-                          </td>
-                          <td className="number-col">
-                            <span className={remainingDays < 0 ? "job-progress-negative" : ""}>
-                              {formatDays(remainingDays)}
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-
-            <section className="job-progress-section">
-              <h3>Avanzamento per singola riga commessa</h3>
-              <div className="database-table">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Commessa</th>
-                      <th>Riga</th>
-                      <th>Cliente</th>
-                      <th>Descrizione riga</th>
-                      <th className="number-col">Venduto</th>
-                      <th className="number-col">Loggato</th>
-                      <th>Avanzamento</th>
-                      <th className="number-col">Ore rimanenti</th>
-                      <th className="number-col">Giorni rimanenti</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredLines
-                      .slice()
-                      .sort((a, b) => b.jobNo.localeCompare(a.jobNo) || a.jobPlanNo.localeCompare(b.jobPlanNo))
-                      .map((line, index) => {
-                        const remainingHours = line.soldHours - line.loggedHours;
-                        const remainingDays = remainingHours / HOURS_PER_DAY;
-
-                        return (
-                          <tr key={`${line.jobNo}-${line.jobPlanNo}-${index}`}>
-                            <td><strong>{line.jobNo || "-"}</strong></td>
-                            <td>{line.jobPlanNo || "-"}</td>
-                            <td>{line.customerName || "-"}</td>
-                            <td>{line.planDescription || "-"}</td>
-                            <td className="number-col">{formatHours(line.soldHours)}</td>
-                            <td className="number-col">{formatHours(line.loggedHours)}</td>
+                        <Fragment key={job.jobNo}>
+                          <tr>
                             <td>
-                              <ProgressBarCell loggedHours={line.loggedHours} soldHours={line.soldHours} />
+                              <button className="job-expand-button" onClick={() => handleToggleJob(job.jobNo)}>
+                                <span>{isExpanded ? "▼" : "▶"}</span>
+                                <strong>{job.jobNo}</strong>
+                              </button>
+                              <div style={{ fontSize: "11px", color: "#64748b", marginLeft: "22px" }}>{job.lineCount} righe</div>
+                            </td>
+                            <td>{job.customerName || "-"}</td>
+                            <td>{job.division || "-"}</td>
+                            <td className="number-col">{formatHours(job.soldHours)}</td>
+                            <td className="number-col">{formatHours(job.loggedHours)}</td>
+                            <td>
+                              <ProgressBarCell loggedHours={job.loggedHours} soldHours={job.soldHours} />
                             </td>
                             <td className="number-col">
                               <span className={remainingHours < 0 ? "job-progress-negative" : ""}>
@@ -380,8 +387,58 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
                               </span>
                             </td>
                           </tr>
-                        );
-                      })}
+                          {isExpanded && (
+                            <tr className="job-progress-detail-row">
+                              <td colSpan={8}>
+                                <div className="job-progress-detail-wrap">
+                                  <table className="job-progress-detail-table">
+                                    <thead>
+                                      <tr>
+                                        <th>Riga</th>
+                                        <th>Descrizione riga</th>
+                                        <th className="number-col">Venduto</th>
+                                        <th className="number-col">Loggato</th>
+                                        <th>Avanzamento</th>
+                                        <th className="number-col">Ore rimanenti</th>
+                                        <th className="number-col">Giorni rimanenti</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {detailLines.map((line, index) => {
+                                        const detailRemainingHours = line.soldHours - line.loggedHours;
+                                        const detailRemainingDays = detailRemainingHours / HOURS_PER_DAY;
+
+                                        return (
+                                          <tr key={`${job.jobNo}-${line.jobPlanNo}-${index}`}>
+                                            <td>{line.jobPlanNo || "-"}</td>
+                                            <td>{line.planDescription || "-"}</td>
+                                            <td className="number-col">{formatHours(line.soldHours)}</td>
+                                            <td className="number-col">{formatHours(line.loggedHours)}</td>
+                                            <td>
+                                              <ProgressBarCell loggedHours={line.loggedHours} soldHours={line.soldHours} />
+                                            </td>
+                                            <td className="number-col">
+                                              <span className={detailRemainingHours < 0 ? "job-progress-negative" : ""}>
+                                                {formatHours(detailRemainingHours)}
+                                              </span>
+                                            </td>
+                                            <td className="number-col">
+                                              <span className={detailRemainingDays < 0 ? "job-progress-negative" : ""}>
+                                                {formatDays(detailRemainingDays)}
+                                              </span>
+                                            </td>
+                                          </tr>
+                                        );
+                                      })}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

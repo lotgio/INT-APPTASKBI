@@ -491,6 +491,64 @@ button:hover {
   font-weight: 700;
 }
 
+.job-progress-actions {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.job-expand-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: #0f172a;
+  cursor: pointer;
+}
+
+.job-expand-button:hover {
+  transform: none;
+  box-shadow: none;
+  color: #1d4ed8;
+}
+
+.job-progress-detail-row td {
+  background: #f8fafc;
+  padding-top: 0;
+}
+
+.job-progress-detail-wrap {
+  padding: 8px 0 4px;
+}
+
+.job-progress-detail-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.job-progress-detail-table th {
+  background: #e2e8f0;
+  padding: 8px 10px;
+  font-size: 12px;
+  text-align: left;
+  border-bottom: 1px solid #d1d5db;
+}
+
+.job-progress-detail-table td {
+  padding: 8px 10px;
+  font-size: 12px;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.job-progress-detail-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
 @media (max-width: 1200px) {
   .job-progress-summary-row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -500,6 +558,11 @@ button:hover {
 @media (max-width: 768px) {
   .job-progress-summary-row {
     grid-template-columns: 1fr;
+  }
+
+  .job-progress-actions {
+    width: 100%;
+    justify-content: flex-start;
   }
 }
 
