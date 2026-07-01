@@ -1,5 +1,5 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
-import { getJobs, getJobsDataLastUpdate } from "./api";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { getJobs, getJobsDataLastUpdate, syncJobsFromAzure } from "./api";
 import type { Task } from "./types";
 
 interface Props {
@@ -91,6 +91,8 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
   const [jobLines, setJobLines] = useState<JobLine[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<string | null>(null);
   const [filterText, setFilterText] = useState("");
   const [divisionScope, setDivisionScope] = useState<DivisionScope>("owned");
@@ -105,60 +107,77 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
     return map;
   }, [tasks]);
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-        const rows: any[] = [];
-        let offset = 0;
+      const rows: any[] = [];
+      let offset = 0;
 
-        while (true) {
-          const loadAllDivisions = divisionScope === "all";
-          const chunk = await getJobs({
-            limit: PAGE_SIZE,
-            offset,
-            ...(loadAllDivisions ? {} : { resourceNo: "CGSSWPOW" })
-          });
-
-          rows.push(...chunk);
-
-          if (chunk.length < PAGE_SIZE) {
-            break;
-          }
-
-          offset += PAGE_SIZE;
-        }
-
-        const mapped = rows.map((row): JobLine => {
-          const jobNo = String(row.JobNo || "");
-          return {
-            jobNo,
-            jobPlanNo: String(row.JobPlanNo || ""),
-            customerName: String(row["Customer Name"] || ""),
-            division: String(row.Division || ""),
-            mainDescription: String(row.job_description || ""),
-            planDescription: String(row["Plan Description"] || ""),
-            soldHours: toNumber(row.Quantity),
-            loggedHours: toNumber(row["Ore Loggate"]),
-            plannedHours: plannedHoursByJob[jobNo] || 0
-          };
+      while (true) {
+        const loadAllDivisions = divisionScope === "all";
+        const chunk = await getJobs({
+          limit: PAGE_SIZE,
+          offset,
+          ...(loadAllDivisions ? {} : { resourceNo: "CGSSWPOW" })
         });
 
-        setJobLines(mapped);
-        const lastUpdateValue = await getJobsDataLastUpdate();
-        setLastUpdate(lastUpdateValue);
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : "Errore caricamento avanzamento commesse";
-        setError(msg);
-      } finally {
-        setLoading(false);
-      }
-    };
+        rows.push(...chunk);
 
-    load();
+        if (chunk.length < PAGE_SIZE) {
+          break;
+        }
+
+        offset += PAGE_SIZE;
+      }
+
+      const mapped = rows.map((row): JobLine => {
+        const jobNo = String(row.JobNo || "");
+        return {
+          jobNo,
+          jobPlanNo: String(row.JobPlanNo || ""),
+          customerName: String(row["Customer Name"] || ""),
+          division: String(row.Division || ""),
+          mainDescription: String(row.job_description || ""),
+          planDescription: String(row["Plan Description"] || ""),
+          soldHours: toNumber(row.Quantity),
+          loggedHours: toNumber(row["Ore Loggate"]),
+          plannedHours: plannedHoursByJob[jobNo] || 0
+        };
+      });
+
+      setJobLines(mapped);
+      const lastUpdateValue = await getJobsDataLastUpdate();
+      setLastUpdate(lastUpdateValue);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Errore caricamento avanzamento commesse";
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
   }, [plannedHoursByJob, divisionScope]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const handleManualRefresh = async () => {
+    try {
+      setIsRefreshing(true);
+      setNotice(null);
+      setError(null);
+
+      const result = await syncJobsFromAzure();
+      setNotice(result.message || "Aggiornamento dati completato");
+      await loadData();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Errore aggiornamento dati da CRM";
+      setError(msg);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   const filteredLines = useMemo(() => {
     const term = filterText.trim().toLowerCase();
@@ -305,6 +324,7 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
 
       <main className="panel job-progress-layout">
         {error && <div className="alert">{error}</div>}
+        {notice && <div className="alert success">{notice}</div>}
 
         <div className="job-progress-summary-row">
           <div className="stat">
@@ -348,6 +368,9 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
             </label>
           </div>
           <div className="job-progress-actions">
+            <button className="secondary" onClick={handleManualRefresh} disabled={isRefreshing}>
+              {isRefreshing ? "Aggiornamento..." : "Aggiorna da CRM"}
+            </button>
             <button className="secondary" onClick={handleExpandAll}>Espandi tutte</button>
             <button className="secondary" onClick={handleCollapseAll}>Chiudi tutte</button>
           </div>
