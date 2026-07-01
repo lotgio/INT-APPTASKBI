@@ -170,7 +170,25 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
 
       try {
         const result = await syncJobsFromAzure();
-        setNotice(result.message || "Aggiornamento dati completato");
+        const message = result.message || "Aggiornamento dati completato";
+        const staticModeMessage = message.toLowerCase().includes("modalità statica") || message.toLowerCase().includes("modalita statica");
+
+        if (staticModeMessage) {
+          const token = window.prompt(
+            "Modalita statica: inserisci un GitHub PAT con permesso Actions:write sul repo lotgio/INT-APPTASKBI per avviare la sync workflow."
+          );
+
+          if (!token) {
+            setNotice("Sync annullata: token non inserito.");
+            return;
+          }
+
+          const dispatchResult = await dispatchSyncJobsWorkflowWithToken(token);
+          setNotice(dispatchResult.message);
+          return;
+        }
+
+        setNotice(message);
         await loadData();
       } catch (syncErr) {
         const syncMessage = syncErr instanceof Error ? syncErr.message : "";
