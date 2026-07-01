@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import * as XLSX from "xlsx-js-style";
 import { dispatchSyncJobsWorkflowWithToken, getJobs, getJobsDataLastUpdate, syncJobsFromPrimarySource } from "./api";
 import type { Task } from "./types";
 
@@ -85,20 +86,6 @@ function ProgressBarCell({ loggedHours, soldHours }: { loggedHours: number; sold
       <span className={`job-progress-text ${overrun ? "overrun" : ""}`}>{percent.toFixed(1)}%</span>
     </div>
   );
-}
-
-function escapeXml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
-}
-
-function xmlCell(value: string | number, type: "String" | "Number", styleId = "Cell"): string {
-  const data = type === "String" ? escapeXml(String(value)) : String(value);
-  return `<Cell ss:StyleID="${styleId}"><Data ss:Type="${type}">${data}</Data></Cell>`;
 }
 
 function fileTimestamp(): string {
@@ -352,173 +339,186 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
       setNotice(null);
 
       const nowIso = new Date().toISOString();
-      const summaryRows = aggregates.map((job) => {
+      const summaryData: Array<Array<string | number>> = [
+        ["Avanzamento Commesse"],
+        [`Generato il: ${nowIso}`],
+        [`Filtro testo: ${filterText || "(nessuno)"}`],
+        [`Ambito divisioni: ${divisionScope === "all" ? "Tutte le divisioni (PM)" : "Divisione standard"}`],
+        [`Ultimo aggiornamento sorgente: ${formatLastUpdate(lastUpdate)}`],
+        [
+          `Totale commesse: ${aggregates.length}`,
+          `Totale righe: ${filteredLines.length}`,
+          `Ore vendute: ${totals.soldHours.toFixed(1)}`,
+          `Ore loggate: ${totals.loggedHours.toFixed(1)}`,
+          `Ore rimanenti: ${totals.remainingHours.toFixed(1)}`,
+          `Giorni rimanenti: ${totals.remainingDays.toFixed(1)}`
+        ],
+        ["Commessa", "Cliente", "Descrizione principale", "Division", "Venduto", "Loggato", "Avanzamento %", "Ore rimanenti", "Giorni rimanenti"],
+        ...aggregates.map((job) => {
+          const remainingHours = job.soldHours - job.loggedHours;
+          const remainingDays = remainingHours / HOURS_PER_DAY;
+          const progress = getProgressPercent(job.loggedHours, job.soldHours);
+          return [
+            job.jobNo || "-",
+            job.customerName || "-",
+            job.mainDescription || "-",
+            job.division || "-",
+            job.soldHours,
+            job.loggedHours,
+            progress,
+            remainingHours,
+            remainingDays
+          ];
+        })
+      ];
+
+      const detailData: Array<Array<string | number>> = [
+        ["Dettaglio righe commessa"],
+        ["Commessa", "Riga", "Cliente", "Division", "Descrizione principale", "Descrizione riga", "Venduto", "Loggato", "Avanzamento %", "Ore rimanenti", "Giorni rimanenti"],
+        ...filteredLines.map((line) => {
+          const remainingHours = line.soldHours - line.loggedHours;
+          const remainingDays = remainingHours / HOURS_PER_DAY;
+          const progress = getProgressPercent(line.loggedHours, line.soldHours);
+          return [
+            line.jobNo || "-",
+            line.jobPlanNo || "-",
+            line.customerName || "-",
+            line.division || "-",
+            line.mainDescription || "-",
+            line.planDescription || "-",
+            line.soldHours,
+            line.loggedHours,
+            progress,
+            remainingHours,
+            remainingDays
+          ];
+        })
+      ];
+
+      const wb = XLSX.utils.book_new();
+      const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+      const wsDetail = XLSX.utils.aoa_to_sheet(detailData);
+
+      wsSummary["!cols"] = [
+        { wch: 14 },
+        { wch: 28 },
+        { wch: 38 },
+        { wch: 12 },
+        { wch: 12 },
+        { wch: 12 },
+        { wch: 14 },
+        { wch: 16 },
+        { wch: 18 }
+      ];
+
+      wsDetail["!cols"] = [
+        { wch: 14 },
+        { wch: 10 },
+        { wch: 28 },
+        { wch: 12 },
+        { wch: 32 },
+        { wch: 36 },
+        { wch: 12 },
+        { wch: 12 },
+        { wch: 14 },
+        { wch: 16 },
+        { wch: 18 }
+      ];
+
+      const baseStyle = {
+        font: { name: "Segoe UI", sz: 10, color: { rgb: "0F172A" } },
+        alignment: { vertical: "center", wrapText: true },
+        border: {
+          top: { style: "thin", color: { rgb: "E2E8F0" } },
+          bottom: { style: "thin", color: { rgb: "E2E8F0" } },
+          left: { style: "thin", color: { rgb: "E2E8F0" } },
+          right: { style: "thin", color: { rgb: "E2E8F0" } }
+        }
+      };
+
+      const titleStyle = {
+        ...baseStyle,
+        font: { name: "Segoe UI", sz: 14, bold: true, color: { rgb: "0F172A" } },
+        fill: { patternType: "solid", fgColor: { rgb: "E2E8F0" } }
+      };
+
+      const headerStyle = {
+        ...baseStyle,
+        font: { name: "Segoe UI", sz: 10, bold: true, color: { rgb: "FFFFFF" } },
+        fill: { patternType: "solid", fgColor: { rgb: "1E293B" } },
+        alignment: { vertical: "center", horizontal: "center", wrapText: true }
+      };
+
+      const numberStyle = {
+        ...baseStyle,
+        numFmt: "0.0",
+        alignment: { vertical: "center", horizontal: "right" }
+      };
+
+      const negativeNumberStyle = {
+        ...numberStyle,
+        font: { name: "Segoe UI", sz: 10, color: { rgb: "B91C1C" } }
+      };
+
+      const applyStyle = (ws: XLSX.WorkSheet, row: number, col: number, style: any) => {
+        const addr = XLSX.utils.encode_cell({ r: row, c: col });
+        if (!ws[addr]) return;
+        ws[addr].s = style;
+      };
+
+      for (let c = 0; c < 9; c += 1) {
+        applyStyle(wsSummary, 0, c, titleStyle);
+        applyStyle(wsSummary, 6, c, headerStyle);
+      }
+
+      for (let r = 1; r < summaryData.length; r += 1) {
+        for (let c = 0; c < 9; c += 1) {
+          applyStyle(wsSummary, r, c, baseStyle);
+        }
+      }
+
+      for (let i = 0; i < aggregates.length; i += 1) {
+        const row = 7 + i;
+        const job = aggregates[i];
         const remainingHours = job.soldHours - job.loggedHours;
         const remainingDays = remainingHours / HOURS_PER_DAY;
         const progress = getProgressPercent(job.loggedHours, job.soldHours);
-        const progressStyle = progress > 100 ? "NegativeNumber" : "Number";
 
-        return [
-          xmlCell(job.jobNo || "-", "String"),
-          xmlCell(job.customerName || "-", "String"),
-          xmlCell(job.mainDescription || "-", "String"),
-          xmlCell(job.division || "-", "String"),
-          xmlCell(job.soldHours, "Number"),
-          xmlCell(job.loggedHours, "Number"),
-          xmlCell(progress, "Number", progressStyle),
-          xmlCell(remainingHours, "Number", remainingHours < 0 ? "NegativeNumber" : "Number"),
-          xmlCell(remainingDays, "Number", remainingDays < 0 ? "NegativeNumber" : "Number")
-        ].join("");
-      });
+        [4, 5, 6, 7, 8].forEach((col) => applyStyle(wsSummary, row, col, numberStyle));
+        if (progress > 100) applyStyle(wsSummary, row, 6, negativeNumberStyle);
+        if (remainingHours < 0) applyStyle(wsSummary, row, 7, negativeNumberStyle);
+        if (remainingDays < 0) applyStyle(wsSummary, row, 8, negativeNumberStyle);
+      }
 
-      const detailRows = filteredLines.map((line) => {
+      for (let c = 0; c < 11; c += 1) {
+        applyStyle(wsDetail, 0, c, titleStyle);
+        applyStyle(wsDetail, 1, c, headerStyle);
+      }
+
+      for (let r = 2; r < detailData.length; r += 1) {
+        for (let c = 0; c < 11; c += 1) {
+          applyStyle(wsDetail, r, c, baseStyle);
+        }
+      }
+
+      for (let i = 0; i < filteredLines.length; i += 1) {
+        const row = 2 + i;
+        const line = filteredLines[i];
         const remainingHours = line.soldHours - line.loggedHours;
         const remainingDays = remainingHours / HOURS_PER_DAY;
         const progress = getProgressPercent(line.loggedHours, line.soldHours);
 
-        return [
-          xmlCell(line.jobNo || "-", "String"),
-          xmlCell(line.jobPlanNo || "-", "String"),
-          xmlCell(line.customerName || "-", "String"),
-          xmlCell(line.division || "-", "String"),
-          xmlCell(line.mainDescription || "-", "String"),
-          xmlCell(line.planDescription || "-", "String"),
-          xmlCell(line.soldHours, "Number"),
-          xmlCell(line.loggedHours, "Number"),
-          xmlCell(progress, "Number", progress > 100 ? "NegativeNumber" : "Number"),
-          xmlCell(remainingHours, "Number", remainingHours < 0 ? "NegativeNumber" : "Number"),
-          xmlCell(remainingDays, "Number", remainingDays < 0 ? "NegativeNumber" : "Number")
-        ].join("");
-      });
+        [6, 7, 8, 9, 10].forEach((col) => applyStyle(wsDetail, row, col, numberStyle));
+        if (progress > 100) applyStyle(wsDetail, row, 8, negativeNumberStyle);
+        if (remainingHours < 0) applyStyle(wsDetail, row, 9, negativeNumberStyle);
+        if (remainingDays < 0) applyStyle(wsDetail, row, 10, negativeNumberStyle);
+      }
 
-      const workbookXml = `<?xml version="1.0"?>
-<?mso-application progid="Excel.Sheet"?>
-<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
- xmlns:o="urn:schemas-microsoft-com:office:office"
- xmlns:x="urn:schemas-microsoft-com:office:excel"
- xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
- xmlns:html="http://www.w3.org/TR/REC-html40">
- <Styles>
-  <Style ss:ID="Default" ss:Name="Normal">
-   <Alignment ss:Vertical="Center"/>
-   <Font ss:FontName="Segoe UI" ss:Size="10" ss:Color="#0f172a"/>
-   <Interior ss:Color="#FFFFFF" ss:Pattern="Solid"/>
-   <Borders>
-    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
-    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
-    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
-    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
-   </Borders>
-  </Style>
-  <Style ss:ID="Title" ss:Parent="Default">
-   <Font ss:FontName="Segoe UI" ss:Size="14" ss:Bold="1" ss:Color="#0f172a"/>
-   <Interior ss:Color="#E2E8F0" ss:Pattern="Solid"/>
-  </Style>
-  <Style ss:ID="Header" ss:Parent="Default">
-   <Font ss:FontName="Segoe UI" ss:Size="10" ss:Bold="1" ss:Color="#FFFFFF"/>
-   <Interior ss:Color="#1E293B" ss:Pattern="Solid"/>
-  </Style>
-  <Style ss:ID="Cell" ss:Parent="Default"/>
-  <Style ss:ID="Number" ss:Parent="Default">
-   <NumberFormat ss:Format="0.0"/>
-  </Style>
-  <Style ss:ID="NegativeNumber" ss:Parent="Number">
-   <Font ss:Color="#B91C1C"/>
-  </Style>
- </Styles>
- <Worksheet ss:Name="Riepilogo">
-  <Table>
-   <Column ss:Width="100"/>
-   <Column ss:Width="180"/>
-   <Column ss:Width="240"/>
-   <Column ss:Width="90"/>
-   <Column ss:Width="90"/>
-   <Column ss:Width="90"/>
-   <Column ss:Width="95"/>
-   <Column ss:Width="110"/>
-   <Column ss:Width="115"/>
-   <Row>
-    ${xmlCell("Avanzamento Commesse", "String", "Title")}
-   </Row>
-   <Row>
-    ${xmlCell(`Generato il: ${nowIso}`, "String")}
-   </Row>
-   <Row>
-    ${xmlCell(`Filtro testo: ${filterText || "(nessuno)"}`, "String")}
-   </Row>
-   <Row>
-    ${xmlCell(`Ambito divisioni: ${divisionScope === "all" ? "Tutte le divisioni (PM)" : "Divisione standard"}`, "String")}
-   </Row>
-   <Row>
-    ${xmlCell(`Ultimo aggiornamento sorgente: ${formatLastUpdate(lastUpdate)}`, "String")}
-   </Row>
-   <Row>
-    ${xmlCell(`Totale commesse: ${aggregates.length}`, "String")}
-    ${xmlCell(`Totale righe: ${filteredLines.length}`, "String")}
-    ${xmlCell(`Ore vendute: ${totals.soldHours.toFixed(1)}`, "String")}
-    ${xmlCell(`Ore loggate: ${totals.loggedHours.toFixed(1)}`, "String")}
-    ${xmlCell(`Ore rimanenti: ${totals.remainingHours.toFixed(1)}`, "String")}
-    ${xmlCell(`Giorni rimanenti: ${totals.remainingDays.toFixed(1)}`, "String")}
-   </Row>
-   <Row>
-    ${xmlCell("Commessa", "String", "Header")}
-    ${xmlCell("Cliente", "String", "Header")}
-    ${xmlCell("Descrizione principale", "String", "Header")}
-    ${xmlCell("Division", "String", "Header")}
-    ${xmlCell("Venduto", "String", "Header")}
-    ${xmlCell("Loggato", "String", "Header")}
-    ${xmlCell("Avanzamento %", "String", "Header")}
-    ${xmlCell("Ore rimanenti", "String", "Header")}
-    ${xmlCell("Giorni rimanenti", "String", "Header")}
-   </Row>
-   ${summaryRows.map((row) => `<Row>${row}</Row>`).join("\n")}
-  </Table>
- </Worksheet>
- <Worksheet ss:Name="Dettaglio Righe">
-  <Table>
-   <Column ss:Width="100"/>
-   <Column ss:Width="80"/>
-   <Column ss:Width="180"/>
-   <Column ss:Width="90"/>
-   <Column ss:Width="240"/>
-   <Column ss:Width="240"/>
-   <Column ss:Width="90"/>
-   <Column ss:Width="90"/>
-   <Column ss:Width="95"/>
-   <Column ss:Width="110"/>
-   <Column ss:Width="115"/>
-   <Row>
-    ${xmlCell("Dettaglio righe commessa", "String", "Title")}
-   </Row>
-   <Row>
-    ${xmlCell("Commessa", "String", "Header")}
-    ${xmlCell("Riga", "String", "Header")}
-    ${xmlCell("Cliente", "String", "Header")}
-    ${xmlCell("Division", "String", "Header")}
-    ${xmlCell("Descrizione principale", "String", "Header")}
-    ${xmlCell("Descrizione riga", "String", "Header")}
-    ${xmlCell("Venduto", "String", "Header")}
-    ${xmlCell("Loggato", "String", "Header")}
-    ${xmlCell("Avanzamento %", "String", "Header")}
-    ${xmlCell("Ore rimanenti", "String", "Header")}
-    ${xmlCell("Giorni rimanenti", "String", "Header")}
-   </Row>
-   ${detailRows.map((row) => `<Row>${row}</Row>`).join("\n")}
-  </Table>
- </Worksheet>
-</Workbook>`;
+      XLSX.utils.book_append_sheet(wb, wsSummary, "Riepilogo");
+      XLSX.utils.book_append_sheet(wb, wsDetail, "Dettaglio Righe");
+      XLSX.writeFile(wb, `avanzamento_commesse_${fileTimestamp()}.xlsx`, { compression: true });
 
-      const blob = new Blob([workbookXml], { type: "application/vnd.ms-excel;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `avanzamento_commesse_${fileTimestamp()}.xml`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      setNotice("Export Excel completato: file XML compatibile Excel scaricato.");
+      setNotice("Export Excel completato: file .xlsx scaricato.");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Errore durante export Excel";
       setError(msg);
