@@ -12,6 +12,7 @@ interface JobLine {
   jobPlanNo: string;
   customerName: string;
   division: string;
+  mainDescription: string;
   planDescription: string;
   soldHours: number;
   loggedHours: number;
@@ -22,6 +23,7 @@ interface JobAggregate {
   jobNo: string;
   customerName: string;
   division: string;
+  mainDescription: string;
   soldHours: number;
   loggedHours: number;
   lineCount: number;
@@ -89,7 +91,7 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<string | null>(null);
-  const [filterJobCode, setFilterJobCode] = useState("");
+  const [filterText, setFilterText] = useState("");
   const [expandedJobs, setExpandedJobs] = useState<Record<string, boolean>>({});
 
   const plannedHoursByJob = useMemo(() => {
@@ -133,6 +135,7 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
             jobPlanNo: String(row.JobPlanNo || ""),
             customerName: String(row["Customer Name"] || ""),
             division: String(row.Division || ""),
+            mainDescription: String(row.job_description || ""),
             planDescription: String(row["Plan Description"] || ""),
             soldHours: toNumber(row.Quantity),
             loggedHours: toNumber(row["Ore Loggate"]),
@@ -155,11 +158,18 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
   }, [plannedHoursByJob]);
 
   const filteredLines = useMemo(() => {
-    const term = filterJobCode.trim().toLowerCase();
+    const term = filterText.trim().toLowerCase();
     if (!term) return jobLines;
 
-    return jobLines.filter((line) => line.jobNo.toLowerCase().includes(term));
-  }, [jobLines, filterJobCode]);
+    return jobLines.filter((line) =>
+      line.jobNo.toLowerCase().includes(term) ||
+      line.jobPlanNo.toLowerCase().includes(term) ||
+      line.customerName.toLowerCase().includes(term) ||
+      line.division.toLowerCase().includes(term) ||
+      line.mainDescription.toLowerCase().includes(term) ||
+      line.planDescription.toLowerCase().includes(term)
+    );
+  }, [jobLines, filterText]);
 
   const aggregates = useMemo(() => {
     const map = new Map<string, JobAggregate>();
@@ -173,6 +183,7 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
           jobNo: line.jobNo,
           customerName: line.customerName,
           division: line.division,
+          mainDescription: line.mainDescription,
           soldHours: line.soldHours,
           loggedHours: line.loggedHours,
           lineCount: 1
@@ -180,6 +191,9 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
         return;
       }
 
+      if (!existing.mainDescription && line.mainDescription) {
+        existing.mainDescription = line.mainDescription;
+      }
       existing.soldHours += line.soldHours;
       existing.loggedHours += line.loggedHours;
       existing.lineCount += 1;
@@ -308,12 +322,12 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
         <div className="database-controls">
           <div className="sort-controls">
             <label>
-              Cerca per codice commessa
+              Cerca commessa / cliente / descrizione / divisione
               <input
                 type="text"
-                placeholder="Es: COAS260820"
-                value={filterJobCode}
-                onChange={(e) => setFilterJobCode(e.target.value)}
+                placeholder="Es: COAS260820, Minerva, Commessa Assistenza..."
+                value={filterText}
+                onChange={(e) => setFilterText(e.target.value)}
               />
             </label>
           </div>
@@ -337,6 +351,7 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
                     <tr>
                       <th>Commessa</th>
                       <th>Cliente</th>
+                      <th>Descrizione principale</th>
                       <th>Division</th>
                       <th className="number-col">Venduto</th>
                       <th className="number-col">Loggato</th>
@@ -348,7 +363,7 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
                   <tbody>
                     {aggregates.length === 0 && (
                       <tr>
-                        <td colSpan={8} style={{ textAlign: "center", color: "#64748b" }}>
+                        <td colSpan={9} style={{ textAlign: "center", color: "#64748b" }}>
                           Nessuna commessa trovata con il codice cercato.
                         </td>
                       </tr>
@@ -370,6 +385,7 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
                               <div style={{ fontSize: "11px", color: "#64748b", marginLeft: "22px" }}>{job.lineCount} righe</div>
                             </td>
                             <td>{job.customerName || "-"}</td>
+                            <td>{job.mainDescription || "-"}</td>
                             <td>{job.division || "-"}</td>
                             <td className="number-col">{formatHours(job.soldHours)}</td>
                             <td className="number-col">{formatHours(job.loggedHours)}</td>
@@ -389,7 +405,7 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
                           </tr>
                           {isExpanded && (
                             <tr className="job-progress-detail-row">
-                              <td colSpan={8}>
+                              <td colSpan={9}>
                                 <div className="job-progress-detail-wrap">
                                   <table className="job-progress-detail-table">
                                     <thead>
