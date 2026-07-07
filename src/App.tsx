@@ -222,6 +222,9 @@ export default function App() {
         <JobProgressPage
           tasks={tasks}
           onSwitchPage={(nextPage) => setPage(nextPage)}
+          onCreateTaskFromJob={(job) => {
+            setSelectedJob(job);
+          }}
         />
       ) : page === "manage" ? (
         <TaskManagePage

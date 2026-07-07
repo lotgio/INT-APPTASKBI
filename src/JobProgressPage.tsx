@@ -6,6 +6,7 @@ import type { Task } from "./types";
 interface Props {
   tasks: Task[];
   onSwitchPage: (page: "manage" | "jobs" | "stats" | "database") => void;
+  onCreateTaskFromJob?: (job: PlanningJob) => void;
 }
 
 interface JobLine {
@@ -28,6 +29,26 @@ interface JobAggregate {
   soldHours: number;
   loggedHours: number;
   lineCount: number;
+}
+
+interface PlannedHoursByJob {
+  total: number;
+  open: number;
+}
+
+interface PlanningJob {
+  jobNo: string;
+  jobPlanNo: string;
+  planDescription: string;
+  division: string;
+  customerName: string;
+  parentChainName?: string;
+  quantity: number;
+  ogreLoggate: number;
+  orePianificate: number;
+  orePianificateAperte: number;
+  oreResidueUfficiali: number;
+  orePianificabili: number;
 }
 
 const HOURS_PER_DAY = 8;
@@ -102,6 +123,10 @@ function getLineStorageKey(line: JobLine): string {
   return [line.jobNo, line.jobPlanNo, line.planDescription].map((part) => (part || "").trim()).join("::");
 }
 
+function getJobStorageKey(jobNo: string): string {
+  return `JOB::${(jobNo || "").trim()}`;
+}
+
 function readStoredToken(): string {
   try {
     return localStorage.getItem(STORAGE_KEYS.syncToken) || "";
@@ -110,7 +135,7 @@ function readStoredToken(): string {
   }
 }
 
-export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
+export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJob }: Props) {
   const [jobLines, setJobLines] = useState<JobLine[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -118,7 +143,7 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<string | null>(null);
   const [filterText, setFilterText] = useState("");
-  const [divisionScope, setDivisionScope] = useState<DivisionScope>("owned");
+  const [divisionScope, setDivisionScope] = useState<DivisionScope>("all");
   const [expandedJobs, setExpandedJobs] = useState<Record<string, boolean>>({});
   const [isExporting, setIsExporting] = useState(false);
   const [githubToken, setGithubToken] = useState("");
@@ -144,10 +169,15 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
   }, []);
 
   const plannedHoursByJob = useMemo(() => {
-    const map: Record<string, number> = {};
+    const map: Record<string, PlannedHoursByJob> = {};
     tasks.forEach((task) => {
       if (!task.commessa) return;
-      map[task.commessa] = (map[task.commessa] || 0) + toNumber(task.hours);
+      const current = map[task.commessa] || { total: 0, open: 0 };
+      current.total += toNumber(task.hours);
+      if (task.status !== "done") {
+        current.open += toNumber(task.hours);
+      }
+      map[task.commessa] = current;
     });
     return map;
   }, [tasks]);
@@ -179,6 +209,7 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
 
       const mapped = rows.map((row): JobLine => {
         const jobNo = String(row.JobNo || "");
+        const planned = plannedHoursByJob[jobNo] || { total: 0, open: 0 };
         return {
           jobNo,
           jobPlanNo: String(row.JobPlanNo || ""),
@@ -188,7 +219,7 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
           planDescription: String(row["Plan Description"] || ""),
           soldHours: toNumber(row.Quantity),
           loggedHours: toNumber(row["Ore Loggate"]),
-          plannedHours: plannedHoursByJob[jobNo] || 0
+          plannedHours: planned.total
         };
       });
 
@@ -448,11 +479,12 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
           `Ore rimanenti: ${totals.remainingHours.toFixed(1)}`,
           `Giorni rimanenti: ${totals.remainingDays.toFixed(1)}`
         ],
-        ["Commessa", "Cliente", "Descrizione principale", "Division", "Venduto", "Loggato", "Avanzamento %", "Ore rimanenti", "Giorni rimanenti"],
+        ["Commessa", "Cliente", "Descrizione principale", "Division", "Venduto", "Loggato", "Avanzamento %", "Ore rimanenti", "Giorni rimanenti", "Note commessa"],
         ...aggregates.map((job) => {
           const remainingHours = job.soldHours - job.loggedHours;
           const remainingDays = remainingHours / HOURS_PER_DAY;
           const progress = getProgressPercent(job.loggedHours, job.soldHours);
+          const jobKey = getJobStorageKey(job.jobNo);
           return [
             job.jobNo || "-",
             job.customerName || "-",
@@ -462,7 +494,8 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
             job.loggedHours,
             progress,
             remainingHours,
-            remainingDays
+            remainingDays,
+            lineNotes[jobKey] || ""
           ];
         })
       ];
@@ -505,7 +538,8 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
         { wch: 12 },
         { wch: 14 },
         { wch: 16 },
-        { wch: 18 }
+        { wch: 18 },
+        { wch: 42 }
       ];
 
       wsDetail["!cols"] = [
@@ -564,13 +598,13 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
         ws[addr].s = style;
       };
 
-      for (let c = 0; c < 9; c += 1) {
+      for (let c = 0; c < 10; c += 1) {
         applyStyle(wsSummary, 0, c, titleStyle);
         applyStyle(wsSummary, 6, c, headerStyle);
       }
 
       for (let r = 1; r < summaryData.length; r += 1) {
-        for (let c = 0; c < 9; c += 1) {
+        for (let c = 0; c < 10; c += 1) {
           applyStyle(wsSummary, r, c, baseStyle);
         }
       }
@@ -760,13 +794,15 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
                       <th>Avanzamento</th>
                       <th className="number-col">Ore rimanenti</th>
                       <th className="number-col">Giorni rimanenti</th>
+                      <th>Note commessa</th>
+                      <th className="actions-col">Azioni</th>
                     </tr>
                   </thead>
                   <tbody>
                     {aggregates.length === 0 && (
                       <tr>
-                        <td colSpan={9} style={{ textAlign: "center", color: "#64748b" }}>
-                          Nessuna commessa trovata con il codice cercato.
+                        <td colSpan={11} style={{ textAlign: "center", color: "#64748b" }}>
+                          Nessuna commessa trovata con i filtri correnti.
                         </td>
                       </tr>
                     )}
@@ -775,6 +811,23 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
                       const remainingDays = remainingHours / HOURS_PER_DAY;
                       const isExpanded = !!expandedJobs[job.jobNo];
                       const detailLines = linesByJob.get(job.jobNo) || [];
+                      const jobKey = getJobStorageKey(job.jobNo);
+                      const planned = plannedHoursByJob[job.jobNo] || { total: 0, open: 0 };
+                      const oreResidueUfficiali = Math.max(0, remainingHours);
+                      const orePianificabili = Math.max(0, remainingHours - planned.open);
+                      const planningJob: PlanningJob = {
+                        jobNo: job.jobNo,
+                        jobPlanNo: "",
+                        planDescription: job.mainDescription || `Task per ${job.jobNo}`,
+                        division: job.division,
+                        customerName: job.customerName,
+                        quantity: job.soldHours,
+                        ogreLoggate: job.loggedHours,
+                        orePianificate: planned.total,
+                        orePianificateAperte: planned.open,
+                        oreResidueUfficiali,
+                        orePianificabili
+                      };
 
                       return (
                         <Fragment key={job.jobNo}>
@@ -804,10 +857,30 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
                                 {formatDays(remainingDays)}
                               </span>
                             </td>
+                            <td>
+                              <textarea
+                                className="job-progress-note-input"
+                                value={lineNotes[jobKey] || ""}
+                                onChange={(e) => handleLineNoteChange(jobKey, e.target.value)}
+                                placeholder="Aggiungi nota commessa..."
+                                rows={2}
+                              />
+                            </td>
+                            <td className="actions-col">
+                              <button
+                                className="primary-small"
+                                onClick={() => onCreateTaskFromJob?.(planningJob)}
+                                title={orePianificabili > 0 ? "Pianifica task da questa commessa" : "Nessuna ora pianificabile disponibile"}
+                                disabled={orePianificabili <= 0}
+                                style={{ opacity: orePianificabili > 0 ? 1 : 0.5 }}
+                              >
+                                +
+                              </button>
+                            </td>
                           </tr>
                           {isExpanded && (
                             <tr className="job-progress-detail-row">
-                              <td colSpan={9}>
+                              <td colSpan={11}>
                                 <div className="job-progress-detail-wrap">
                                   <table className="job-progress-detail-table">
                                     <thead>

@@ -1,4 +1,4 @@
-name: Sync Jobs (Direct CRM/NAV with Azure fallback)
+name: Sync Jobs (Azure Blob)
 
 permissions:
   contents: write
@@ -58,17 +58,10 @@ jobs:
           JOBS_MIN_YEAR=${{ secrets.JOBS_MIN_YEAR }}
           EOF
 
-      - name: Sync jobs (direct source first, Azure fallback)
+      - name: Sync jobs from Azure Blob
         run: |
-          echo "Trying direct CRM/NAV sync..."
-          if python sync-jobs-direct.py; then
-            echo "SYNC_SOURCE=direct" >> $GITHUB_ENV
-            echo "Direct sync completed"
-          else
-            echo "Direct sync failed, using Azure fallback"
-            python sync-jobs.py
-            echo "SYNC_SOURCE=azure-fallback" >> $GITHUB_ENV
-          fi
+          python sync-jobs.py
+          echo "SYNC_SOURCE=azure" >> $GITHUB_ENV
 
       - name: Print sync source used
         run: |

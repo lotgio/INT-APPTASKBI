@@ -4,11 +4,12 @@ import { supabase } from "./supabaseClient";
 
 const RAW_API_BASE = (((import.meta as any)?.env?.VITE_API_BASE || "/api") as string).trim();
 const API_BASE = RAW_API_BASE.endsWith("/") ? RAW_API_BASE.slice(0, -1) : RAW_API_BASE;
-// Usa localStorage SOLO se esplicitamente richiesto (es. GitHub Pages)
+// Usa localStorage solo se esplicitamente richiesto da configurazione.
 const USE_LOCAL_STORAGE = (import.meta as any)?.env?.VITE_USE_LOCAL_STORAGE === "true";
-// Usa Supabase se configurato (nuovo default)
+// Usa Supabase se configurato.
 const USE_SUPABASE = !!supabase;
 const IS_GITHUB_PAGES = typeof window !== "undefined" && window.location.hostname.endsWith("github.io");
+// Su GitHub Pages i job CRM vengono letti dallo snapshot pubblicato generato da Azure durante il deploy.
 const USE_MOCK_JOBS = USE_LOCAL_STORAGE || IS_GITHUB_PAGES;
 const ALLOW_STATIC_JOBS_FALLBACK =
   USE_LOCAL_STORAGE ||
@@ -463,7 +464,7 @@ export async function syncJobsFromAzure(): Promise<{ ok: boolean; message: strin
 }
 
 export async function syncJobsFromPrimarySource(): Promise<{ ok: boolean; message: string; source?: string }> {
-  console.log("🔄 Sincronizzazione commesse da fonte principale richiesta...");
+  console.log("🔄 Sincronizzazione commesse da Azure richiesta...");
 
   if (USE_MOCK_JOBS) {
     console.log("📦 Modalità localStorage: sincronizzazione non disponibile");
@@ -476,7 +477,7 @@ export async function syncJobsFromPrimarySource(): Promise<{ ok: boolean; messag
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ source: "direct" })
+      body: JSON.stringify({ source: "azure" })
     });
 
     if (!response.ok) {
@@ -490,7 +491,7 @@ export async function syncJobsFromPrimarySource(): Promise<{ ok: boolean; messag
     return { ok: true, message, source: result.source };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Errore sconosciuto";
-    console.error("❌ Errore sincronizzazione fonte principale:", msg);
+    console.error("❌ Errore sincronizzazione Azure:", msg);
     throw err;
   }
 }
@@ -548,32 +549,32 @@ export async function getJobsDataLastUpdate(): Promise<string | null> {
 
 export async function getJobProgressLineNotes(): Promise<Record<string, string>> {
   if (USE_SUPABASE && supabase) {
-    try {
-      const { data, error } = await supabase
-        .from("job_progress_line_notes")
-        .select("linekey,note");
-      if (error) throw error;
-
-      const map: Record<string, string> = {};
-      (data || []).forEach((row: any) => {
-        const key = String(row.linekey || "").trim();
-        if (!key) return;
-        map[key] = String(row.note || "");
-      });
-
-      saveLocal(STORAGE_KEYS.jobProgressLineNotes, map);
-      return map;
-    } catch (err) {
-      console.warn("⚠️ Impossibile leggere note avanzamento da Supabase, uso fallback locale", err);
-      return loadLocal<Record<string, string>>(STORAGE_KEYS.jobProgressLineNotes, {});
+    const { data, error } = await supabase
+      .from("job_progress_line_notes")
+      .select("linekey,note");
+    if (error) {
+      // La tabella note potrebbe non essere ancora stata creata nel progetto Supabase.
+      if ((error as any).code === "PGRST205") {
+        return {};
+      }
+      throw error;
     }
+
+    const map: Record<string, string> = {};
+    (data || []).forEach((row: any) => {
+      const key = String(row.linekey || "").trim();
+      if (!key) return;
+      map[key] = String(row.note || "");
+    });
+
+    return map;
   }
 
   if (USE_LOCAL_STORAGE) {
     return loadLocal<Record<string, string>>(STORAGE_KEYS.jobProgressLineNotes, {});
   }
 
-  return loadLocal<Record<string, string>>(STORAGE_KEYS.jobProgressLineNotes, {});
+  return {};
 }
 
 export async function saveJobProgressLineNote(lineKey: string, note: string): Promise<void> {
@@ -581,18 +582,15 @@ export async function saveJobProgressLineNote(lineKey: string, note: string): Pr
   if (!key) return;
 
   const normalizedNote = note.slice(0, 500);
-  const local = loadLocal<Record<string, string>>(STORAGE_KEYS.jobProgressLineNotes, {});
-  if (normalizedNote.trim()) {
-    local[key] = normalizedNote;
-  } else {
-    delete local[key];
-  }
-  saveLocal(STORAGE_KEYS.jobProgressLineNotes, local);
-
   if (USE_SUPABASE && supabase) {
     if (!normalizedNote.trim()) {
       const { error } = await supabase.from("job_progress_line_notes").delete().eq("linekey", key);
-      if (error) throw error;
+      if (error) {
+        if ((error as any).code === "PGRST205") {
+          throw new Error("Tabella note non configurata su Supabase. Esegui lo script supabase/job-progress-line-notes.sql.");
+        }
+        throw error;
+      }
       return;
     }
 
@@ -602,8 +600,23 @@ export async function saveJobProgressLineNote(lineKey: string, note: string): Pr
       updatedat: new Date().toISOString()
     };
     const { error } = await supabase.from("job_progress_line_notes").upsert(payload, { onConflict: "linekey" });
-    if (error) throw error;
+    if (error) {
+      if ((error as any).code === "PGRST205") {
+        throw new Error("Tabella note non configurata su Supabase. Esegui lo script supabase/job-progress-line-notes.sql.");
+      }
+      throw error;
+    }
     return;
+  }
+
+  if (USE_LOCAL_STORAGE) {
+    const local = loadLocal<Record<string, string>>(STORAGE_KEYS.jobProgressLineNotes, {});
+    if (normalizedNote.trim()) {
+      local[key] = normalizedNote;
+    } else {
+      delete local[key];
+    }
+    saveLocal(STORAGE_KEYS.jobProgressLineNotes, local);
   }
 }
 

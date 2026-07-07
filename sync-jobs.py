@@ -104,7 +104,6 @@ def sync_jobs_from_azure():
     except Exception as e:
         print(f"⚠️  Errore durante la sincronizzazione: {str(e)}", file=sys.stderr)
         print(f"   Tipo errore: {type(e).__name__}", file=sys.stderr)
-        print(f"   Userò i dati locali esistenti", file=sys.stderr)
         return False
 
 def ensure_jobs_json_exists():
@@ -127,10 +126,10 @@ if __name__ == "__main__":
     try:
         success = sync_jobs_from_azure()
         if not success:
-            ensure_jobs_json_exists()
+            print("❌ Deploy interrotto: impossibile aggiornare public/jobs.json da Azure", file=sys.stderr)
+            sys.exit(1)
     except Exception as e:
         print(f"❌ Errore critico: {e}", file=sys.stderr)
-        ensure_jobs_json_exists()
         sys.exit(1)
     
     print("\n" + "="*60)
