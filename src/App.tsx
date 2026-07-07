@@ -23,6 +23,7 @@ interface Job {
   quantity: number;
   ogreLoggate: number;
   orePianificate: number;
+  orePianificateAperte: number;
   oreResidueUfficiali: number;
   orePianificabili: number;
 }

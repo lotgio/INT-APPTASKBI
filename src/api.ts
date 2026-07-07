@@ -23,7 +23,8 @@ function getJobsSourceUrl(): string {
 
 const STORAGE_KEYS = {
   members: "apptaskbi_members",
-  tasks: "apptaskbi_tasks"
+  tasks: "apptaskbi_tasks",
+  jobProgressLineNotes: "apptaskbi_job_progress_line_notes"
 } as const;
 
 function loadLocal<T>(key: string, fallback: T): T {
@@ -542,6 +543,67 @@ export async function getJobsDataLastUpdate(): Promise<string | null> {
     return response.headers.get("last-modified");
   } catch {
     return null;
+  }
+}
+
+export async function getJobProgressLineNotes(): Promise<Record<string, string>> {
+  if (USE_SUPABASE && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from("job_progress_line_notes")
+        .select("linekey,note");
+      if (error) throw error;
+
+      const map: Record<string, string> = {};
+      (data || []).forEach((row: any) => {
+        const key = String(row.linekey || "").trim();
+        if (!key) return;
+        map[key] = String(row.note || "");
+      });
+
+      saveLocal(STORAGE_KEYS.jobProgressLineNotes, map);
+      return map;
+    } catch (err) {
+      console.warn("⚠️ Impossibile leggere note avanzamento da Supabase, uso fallback locale", err);
+      return loadLocal<Record<string, string>>(STORAGE_KEYS.jobProgressLineNotes, {});
+    }
+  }
+
+  if (USE_LOCAL_STORAGE) {
+    return loadLocal<Record<string, string>>(STORAGE_KEYS.jobProgressLineNotes, {});
+  }
+
+  return loadLocal<Record<string, string>>(STORAGE_KEYS.jobProgressLineNotes, {});
+}
+
+export async function saveJobProgressLineNote(lineKey: string, note: string): Promise<void> {
+  const key = lineKey.trim();
+  if (!key) return;
+
+  const normalizedNote = note.slice(0, 500);
+  const local = loadLocal<Record<string, string>>(STORAGE_KEYS.jobProgressLineNotes, {});
+  if (normalizedNote.trim()) {
+    local[key] = normalizedNote;
+  } else {
+    delete local[key];
+  }
+  saveLocal(STORAGE_KEYS.jobProgressLineNotes, local);
+
+  if (USE_SUPABASE && supabase) {
+    if (!normalizedNote.trim()) {
+      const { error } = await supabase.from("job_progress_line_notes").delete().eq("linekey", key);
+      if (error) throw error;
+      return;
+    }
+
+    const payload = {
+      linekey: key,
+      note: normalizedNote,
+      updatedat: new Date().toISOString()
+    };
+    const { error } = await supabase.from("job_progress_line_notes").upsert(payload, { onConflict: "linekey" });
+    if (error) throw error;
+    return;
   }
 }
 

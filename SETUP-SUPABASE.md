@@ -78,6 +78,14 @@ CREATE POLICY "Enable delete for all users" ON tasks FOR DELETE USING (true);
 
 3. Clicca "Run"
 
+### Tabella `job_progress_line_notes`
+
+Per salvare i commenti della schermata avanzamento commesse tra browser/dispositivi:
+
+1. Nuovo query in SQL Editor
+2. Copia e incolla il contenuto del file `supabase/job-progress-line-notes.sql`
+3. Clicca "Run"
+
 ## Step 3: Ottieni le Credenziali
 
 1. Vai a **Settings** (ingranaggio in basso a sinistra)

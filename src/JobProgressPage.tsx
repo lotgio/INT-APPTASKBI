@@ -1,6 +1,6 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx-js-style";
-import { dispatchSyncJobsWorkflowWithToken, getJobs, getJobsDataLastUpdate, syncJobsFromPrimarySource } from "./api";
+import { dispatchSyncJobsWorkflowWithToken, getJobProgressLineNotes, getJobs, getJobsDataLastUpdate, saveJobProgressLineNote, syncJobsFromPrimarySource } from "./api";
 import type { Task } from "./types";
 
 interface Props {
@@ -33,6 +33,10 @@ interface JobAggregate {
 const HOURS_PER_DAY = 8;
 const PAGE_SIZE = 1000;
 type DivisionScope = "owned" | "all";
+
+const STORAGE_KEYS = {
+  syncToken: "apptaskbi_sync_github_token"
+} as const;
 
 function toNumber(value: unknown): number {
   const num = Number(value);
@@ -94,6 +98,18 @@ function fileTimestamp(): string {
   return `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}`;
 }
 
+function getLineStorageKey(line: JobLine): string {
+  return [line.jobNo, line.jobPlanNo, line.planDescription].map((part) => (part || "").trim()).join("::");
+}
+
+function readStoredToken(): string {
+  try {
+    return localStorage.getItem(STORAGE_KEYS.syncToken) || "";
+  } catch {
+    return "";
+  }
+}
+
 export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
   const [jobLines, setJobLines] = useState<JobLine[]>([]);
   const [loading, setLoading] = useState(true);
@@ -105,6 +121,27 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
   const [divisionScope, setDivisionScope] = useState<DivisionScope>("owned");
   const [expandedJobs, setExpandedJobs] = useState<Record<string, boolean>>({});
   const [isExporting, setIsExporting] = useState(false);
+  const [githubToken, setGithubToken] = useState("");
+  const [lineNotes, setLineNotes] = useState<Record<string, string>>({});
+  const noteSaveTimersRef = useRef<Record<string, number>>({});
+  const [isNotesLoading, setIsNotesLoading] = useState(true);
+
+  useEffect(() => {
+    setGithubToken(readStoredToken());
+  }, []);
+
+  const loadNotes = useCallback(async () => {
+    try {
+      setIsNotesLoading(true);
+      const notes = await getJobProgressLineNotes();
+      setLineNotes(notes);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Errore caricamento note";
+      setError(msg);
+    } finally {
+      setIsNotesLoading(false);
+    }
+  }, []);
 
   const plannedHoursByJob = useMemo(() => {
     const map: Record<string, number> = {};
@@ -170,6 +207,84 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
     loadData();
   }, [loadData]);
 
+  useEffect(() => {
+    loadNotes();
+  }, [loadNotes]);
+
+  useEffect(() => {
+    return () => {
+      Object.values(noteSaveTimersRef.current).forEach((timerId) => {
+        window.clearTimeout(timerId);
+      });
+    };
+  }, []);
+
+  const persistLineNote = useCallback(async (lineKey: string, note: string) => {
+    try {
+      await saveJobProgressLineNote(lineKey, note);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Errore salvataggio nota";
+      setError(msg);
+    }
+  }, []);
+
+  const handleLineNoteChange = (lineKey: string, value: string) => {
+    const nextValue = value.slice(0, 500);
+    setLineNotes((prev) => ({ ...prev, [lineKey]: nextValue }));
+
+    const currentTimer = noteSaveTimersRef.current[lineKey];
+    if (currentTimer) {
+      window.clearTimeout(currentTimer);
+    }
+
+    noteSaveTimersRef.current[lineKey] = window.setTimeout(() => {
+      void persistLineNote(lineKey, nextValue);
+      delete noteSaveTimersRef.current[lineKey];
+    }, 700);
+  };
+
+  const handleSaveToken = () => {
+    const token = githubToken.trim();
+    if (!token) {
+      setNotice("Inserisci un token valido prima di salvarlo.");
+      return;
+    }
+
+    try {
+      localStorage.setItem(STORAGE_KEYS.syncToken, token);
+      setNotice("Token salvato in locale su questo browser.");
+    } catch {
+      setError("Impossibile salvare il token in locale.");
+    }
+  };
+
+  const handleClearToken = () => {
+    try {
+      localStorage.removeItem(STORAGE_KEYS.syncToken);
+    } catch {
+      // Ignora errori storage.
+    }
+    setGithubToken("");
+    setNotice("Token locale rimosso.");
+  };
+
+  const handleDispatchStaticSync = async (): Promise<boolean> => {
+    const token = githubToken.trim();
+    if (!token) {
+      setNotice("Modalita statica: inserisci il token GitHub nel campo 'Token sync'.");
+      return false;
+    }
+
+    const dispatchResult = await dispatchSyncJobsWorkflowWithToken(token);
+    try {
+      localStorage.setItem(STORAGE_KEYS.syncToken, token);
+    } catch {
+      // Ignora errori storage.
+    }
+    setNotice(dispatchResult.message);
+    return true;
+  };
+
   const handleManualRefresh = async () => {
     try {
       setIsRefreshing(true);
@@ -182,17 +297,7 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
         const staticModeMessage = message.toLowerCase().includes("modalità statica") || message.toLowerCase().includes("modalita statica");
 
         if (staticModeMessage) {
-          const token = window.prompt(
-            "Modalita statica: inserisci un GitHub PAT con permesso Actions:write sul repo lotgio/INT-APPTASKBI per avviare la sync workflow."
-          );
-
-          if (!token) {
-            setNotice("Sync annullata: token non inserito.");
-            return;
-          }
-
-          const dispatchResult = await dispatchSyncJobsWorkflowWithToken(token);
-          setNotice(dispatchResult.message);
+          await handleDispatchStaticSync();
           return;
         }
 
@@ -206,17 +311,7 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
           throw syncErr;
         }
 
-        const token = window.prompt(
-          "Modalita statica: inserisci un GitHub PAT con permesso Actions:write sul repo lotgio/INT-APPTASKBI per avviare la sync workflow."
-        );
-
-        if (!token) {
-          setNotice("Sync annullata: token non inserito.");
-          return;
-        }
-
-        const dispatchResult = await dispatchSyncJobsWorkflowWithToken(token);
-        setNotice(dispatchResult.message);
+        await handleDispatchStaticSync();
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Errore aggiornamento dati da CRM";
@@ -374,11 +469,12 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
 
       const detailData: Array<Array<string | number>> = [
         ["Dettaglio righe commessa"],
-        ["Commessa", "Riga", "Cliente", "Division", "Descrizione principale", "Descrizione riga", "Venduto", "Loggato", "Avanzamento %", "Ore rimanenti", "Giorni rimanenti"],
+        ["Commessa", "Riga", "Cliente", "Division", "Descrizione principale", "Descrizione riga", "Venduto", "Loggato", "Avanzamento %", "Ore rimanenti", "Giorni rimanenti", "Note"],
         ...filteredLines.map((line) => {
           const remainingHours = line.soldHours - line.loggedHours;
           const remainingDays = remainingHours / HOURS_PER_DAY;
           const progress = getProgressPercent(line.loggedHours, line.soldHours);
+          const lineKey = getLineStorageKey(line);
           return [
             line.jobNo || "-",
             line.jobPlanNo || "-",
@@ -390,7 +486,8 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
             line.loggedHours,
             progress,
             remainingHours,
-            remainingDays
+            remainingDays,
+            lineNotes[lineKey] || ""
           ];
         })
       ];
@@ -422,7 +519,8 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
         { wch: 12 },
         { wch: 14 },
         { wch: 16 },
-        { wch: 18 }
+        { wch: 18 },
+        { wch: 42 }
       ];
 
       const baseStyle = {
@@ -490,13 +588,13 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
         if (remainingDays < 0) applyStyle(wsSummary, row, 8, negativeNumberStyle);
       }
 
-      for (let c = 0; c < 11; c += 1) {
+      for (let c = 0; c < 12; c += 1) {
         applyStyle(wsDetail, 0, c, titleStyle);
         applyStyle(wsDetail, 1, c, headerStyle);
       }
 
       for (let r = 2; r < detailData.length; r += 1) {
-        for (let c = 0; c < 11; c += 1) {
+        for (let c = 0; c < 12; c += 1) {
           applyStyle(wsDetail, r, c, baseStyle);
         }
       }
@@ -582,6 +680,10 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
             <span>Ore rimanenti totali</span>
           </div>
           <div className="stat">
+            <strong>{isNotesLoading ? "..." : Object.keys(lineNotes).length}</strong>
+            <span>Note salvate</span>
+          </div>
+          <div className="stat">
             <strong>{formatDays(Math.max(totals.remainingDays, 0))}</strong>
             <span>Giorni rimanenti totali (8h)</span>
           </div>
@@ -608,8 +710,24 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
                 onChange={(e) => setFilterText(e.target.value)}
               />
             </label>
+            <label>
+              Token sync (GitHub PAT)
+              <input
+                type="password"
+                placeholder="github_pat_..."
+                value={githubToken}
+                onChange={(e) => setGithubToken(e.target.value)}
+                autoComplete="off"
+              />
+            </label>
           </div>
           <div className="job-progress-actions">
+            <button className="secondary" onClick={handleSaveToken}>
+              Salva token
+            </button>
+            <button className="secondary" onClick={handleClearToken}>
+              Rimuovi token
+            </button>
             <button className="secondary" onClick={handleManualRefresh} disabled={isRefreshing}>
               {isRefreshing ? "Aggiornamento..." : "Aggiorna da CRM"}
             </button>
@@ -701,12 +819,14 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
                                         <th>Avanzamento</th>
                                         <th className="number-col">Ore rimanenti</th>
                                         <th className="number-col">Giorni rimanenti</th>
+                                        <th>Note</th>
                                       </tr>
                                     </thead>
                                     <tbody>
                                       {detailLines.map((line, index) => {
                                         const detailRemainingHours = line.soldHours - line.loggedHours;
                                         const detailRemainingDays = detailRemainingHours / HOURS_PER_DAY;
+                                        const lineKey = getLineStorageKey(line);
 
                                         return (
                                           <tr key={`${job.jobNo}-${line.jobPlanNo}-${index}`}>
@@ -726,6 +846,15 @@ export default function JobProgressPage({ tasks, onSwitchPage }: Props) {
                                               <span className={detailRemainingDays < 0 ? "job-progress-negative" : ""}>
                                                 {formatDays(detailRemainingDays)}
                                               </span>
+                                            </td>
+                                            <td>
+                                              <textarea
+                                                className="job-progress-note-input"
+                                                value={lineNotes[lineKey] || ""}
+                                                onChange={(e) => handleLineNoteChange(lineKey, e.target.value)}
+                                                placeholder="Aggiungi nota..."
+                                                rows={2}
+                                              />
                                             </td>
                                           </tr>
                                         );

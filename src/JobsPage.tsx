@@ -17,6 +17,11 @@ interface Job {
   orePianificabili: number;
 }
 
+interface PlannedHoursByJob {
+  total: number;
+  open: number;
+}
+
 interface Props {
   tasks?: Task[];
   onSwitchPage: (page: "manage" | "stats" | "database") => void;
@@ -75,9 +80,9 @@ export default function JobsPage({ tasks = [], onSwitchPage, onCreateTaskFromJob
         const jobNo = job.JobNo || "";
         const quantity = Number(job.Quantity) || 0;
         const oreLoggate = Number(job["Ore Loggate"]) || 0;
-        const orePianificate = plannedHoursByJob[jobNo] || 0;
-        // Allineamento: il consuntivo assorbe prima il pianificato gia' presente.
-        const orePianificateAperte = Math.max(0, orePianificate - oreLoggate);
+        const plannedHours = plannedHoursByJob[jobNo] || { total: 0, open: 0 };
+        const orePianificate = plannedHours.total;
+        const orePianificateAperte = plannedHours.open;
         // Residuo ufficiale basato solo sul consuntivo CRM.
         const oreResidueUfficiali = Math.max(0, quantity - oreLoggate);
         // Pianificabili effettive: togliamo dal venduto sia il consuntivo sia il pianificato ancora aperto.
@@ -122,10 +127,15 @@ export default function JobsPage({ tasks = [], onSwitchPage, onCreateTaskFromJob
 
   // Calcola ore pianificate per ogni commessa
   const plannedHoursByJob = useMemo(() => {
-    const map: Record<string, number> = {};
+    const map: Record<string, PlannedHoursByJob> = {};
     tasks.forEach(task => {
       const jobNo = task.commessa;
-      map[jobNo] = (map[jobNo] || 0) + task.hours;
+      const current = map[jobNo] || { total: 0, open: 0 };
+      current.total += task.hours;
+      if (task.status !== "done") {
+        current.open += task.hours;
+      }
+      map[jobNo] = current;
     });
     return map;
   }, [tasks]);
