@@ -770,6 +770,8 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
             <button className="secondary" onClick={handleExportExcel} disabled={isExporting || loading}>
               {isExporting ? "Export..." : "Esporta Excel"}
             </button>
+            <button className="secondary" onClick={handleExpandAll}>Espandi tutte</button>
+            <button className="secondary" onClick={handleCollapseAll}>Chiudi tutte</button>
           </div>
         </div>
 
@@ -827,13 +829,17 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
                         orePianificabili
                       };
                       const detailLines = linesByJob.get(job.jobNo) || [];
+                      const isExpanded = !!expandedJobs[job.jobNo];
 
                       return (
                         <Fragment key={job.jobNo}>
                           {/* Riga macro commessa */}
                           <tr style={{ backgroundColor: "#f1f5f9", borderTop: "2px solid #cbd5e1" }}>
                             <td>
-                              <strong style={{ fontSize: "13px" }}>{job.jobNo}</strong>
+                              <button className="job-expand-button" onClick={() => handleToggleJob(job.jobNo)}>
+                                <span>{isExpanded ? "▼" : "▶"}</span>
+                                <strong style={{ fontSize: "13px" }}>{job.jobNo}</strong>
+                              </button>
                               <span style={{ fontSize: "11px", color: "#64748b", marginLeft: "8px" }}>{job.lineCount} {job.lineCount === 1 ? "riga" : "righe"}</span>
                             </td>
                             <td><strong>{job.customerName || "-"}</strong></td>
@@ -873,8 +879,8 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
                               </button>
                             </td>
                           </tr>
-                          {/* Righe di dettaglio — sempre visibili */}
-                          {detailLines.map((line, index) => {
+                          {/* Righe di dettaglio — visibili solo se espanse */}
+                          {isExpanded && detailLines.map((line, index) => {
                             const remainingHours = line.soldHours - line.loggedHours;
                             const remainingDays = remainingHours / HOURS_PER_DAY;
                             const lineKey = getLineStorageKey(line);
