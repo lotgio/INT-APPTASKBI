@@ -40,10 +40,7 @@ export default function TaskFromJobModal({ job, members, onTaskCreated, onClose 
       return;
     }
 
-    if (hours > job.orePianificabili) {
-      setError(`Non puoi pianificare più ore di quelle pianificabili (${job.orePianificabili.toFixed(1)}h disponibili)`);
-      return;
-    }
+    // soft warning only — allow overplanning intentionally
 
     try {
       const created = await createTask({
@@ -78,7 +75,7 @@ export default function TaskFromJobModal({ job, members, onTaskCreated, onClose 
         <form className="modal-body" onSubmit={handleCreateTask}>
           <div style={{ marginBottom: "16px", padding: "12px", backgroundColor: "#f1f5f9", borderRadius: "8px" }}>
             <div style={{ display: "grid", gap: "8px", fontSize: "14px" }}>
-              <div><strong>Job No:</strong> {job.jobNo}</div>
+              <div><strong>Job No:</strong> {job.jobNo}{job.jobPlanNo ? ` — riga ${job.jobPlanNo}` : ""}</div>
               <div><strong>Cliente:</strong> {job.customerName}</div>
               <div><strong>Division:</strong> {job.division}</div>
               <div><strong>Ore vendute:</strong> {job.quantity.toFixed(1)}h</div>
@@ -86,7 +83,7 @@ export default function TaskFromJobModal({ job, members, onTaskCreated, onClose 
               <div><strong>Ore pianificate totali:</strong> {job.orePianificate.toFixed(1)}h</div>
               <div><strong>Ore pianificate aperte:</strong> {job.orePianificateAperte.toFixed(1)}h</div>
               <div><strong>Ore residue ufficiali:</strong> {job.oreResidueUfficiali.toFixed(1)}h</div>
-              <div><strong>Ore pianificabili:</strong> <span style={{ color: "#f59e0b", fontWeight: "600" }}>{job.orePianificabili.toFixed(1)}h</span></div>
+              <div><strong>Ore pianificabili:</strong> <span style={{ color: job.orePianificabili > 0 ? "#f59e0b" : "#ef4444", fontWeight: "600" }}>{job.orePianificabili.toFixed(1)}h {job.orePianificabili <= 0 ? "— già coperta da task aperti" : ""}</span></div>
             </div>
           </div>
 
@@ -97,11 +94,14 @@ export default function TaskFromJobModal({ job, members, onTaskCreated, onClose 
               type="number"
               step="0.5"
               min="0.5"
-              max={job.orePianificabili}
               value={hours}
               onChange={(event) => setHours(parseFloat(event.target.value) || 0)}
             />
-            <small style={{ color: "#64748b" }}>Max {job.orePianificabili.toFixed(1)}h disponibili (vendute - loggate - pianificate aperte)</small>
+            <small style={{ color: job.orePianificabili > 0 ? "#64748b" : "#ef4444" }}>
+              {job.orePianificabili > 0
+                ? `${job.orePianificabili.toFixed(1)}h teoricamente pianificabili (vendute - loggate - pianificate aperte)`
+                : `Commessa già coperta da task aperti — la pianificazione extra è consentita`}
+            </small>
           </label>
 
           <label>

@@ -870,9 +870,7 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
                               <button
                                 className="primary-small"
                                 onClick={() => onCreateTaskFromJob?.(planningJob)}
-                                title={orePianificabili > 0 ? "Pianifica task da questa commessa" : "Nessuna ora pianificabile disponibile"}
-                                disabled={orePianificabili <= 0}
-                                style={{ opacity: orePianificabili > 0 ? 1 : 0.5 }}
+                                title={orePianificabili > 0 ? `Pianifica task (${orePianificabili.toFixed(1)}h pianificabili)` : "Commessa già coperta da task aperti — puoi comunque aggiungere"}
                               >
                                 +
                               </button>
@@ -893,6 +891,7 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
                                         <th className="number-col">Ore rimanenti</th>
                                         <th className="number-col">Giorni rimanenti</th>
                                         <th>Note</th>
+                                        <th className="actions-col">Azioni</th>
                                       </tr>
                                     </thead>
                                     <tbody>
@@ -900,6 +899,20 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
                                         const detailRemainingHours = line.soldHours - line.loggedHours;
                                         const detailRemainingDays = detailRemainingHours / HOURS_PER_DAY;
                                         const lineKey = getLineStorageKey(line);
+                                        const lineOrePianificabili = Math.max(0, detailRemainingHours);
+                                        const linePlanningJob: PlanningJob = {
+                                          jobNo: line.jobNo,
+                                          jobPlanNo: line.jobPlanNo,
+                                          planDescription: line.planDescription || `Riga ${line.jobPlanNo} — ${line.jobNo}`,
+                                          division: line.division,
+                                          customerName: line.customerName,
+                                          quantity: line.soldHours,
+                                          ogreLoggate: line.loggedHours,
+                                          orePianificate: line.plannedHours,
+                                          orePianificateAperte: 0,
+                                          oreResidueUfficiali: Math.max(0, detailRemainingHours),
+                                          orePianificabili: lineOrePianificabili
+                                        };
 
                                         return (
                                           <tr key={`${job.jobNo}-${line.jobPlanNo}-${index}`}>
@@ -928,8 +941,15 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
                                                 placeholder="Aggiungi nota..."
                                                 rows={2}
                                               />
-                                            </td>
-                                          </tr>
+                                            </td>                                            <td className="actions-col">
+                                              <button
+                                                className="primary-small"
+                                                onClick={() => onCreateTaskFromJob?.(linePlanningJob)}
+                                                title={lineOrePianificabili > 0 ? `Pianifica riga (${lineOrePianificabili.toFixed(1)}h residue)` : "Riga già completata — puoi comunque aggiungere"}
+                                              >
+                                                +
+                                              </button>
+                                            </td>                                          </tr>
                                         );
                                       })}
                                     </tbody>
