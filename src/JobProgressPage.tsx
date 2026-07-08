@@ -778,13 +778,12 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
         ) : (
           <>
             <section className="job-progress-section">
-              <h3>Avanzamento righe commessa ({filteredLines.length} righe)</h3>
+              <h3>Avanzamento commesse ({aggregates.length} commesse, {filteredLines.length} righe)</h3>
               <div className="database-table">
                 <table>
                   <thead>
                     <tr>
-                      <th>Commessa</th>
-                      <th>Riga</th>
+                      <th>Commessa / Riga</th>
                       <th>Cliente</th>
                       <th>Descrizione</th>
                       <th>Division</th>
@@ -798,74 +797,145 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredLines.length === 0 && (
+                    {aggregates.length === 0 && (
                       <tr>
-                        <td colSpan={12} style={{ textAlign: "center", color: "#64748b" }}>
-                          Nessuna riga trovata con i filtri correnti.
+                        <td colSpan={11} style={{ textAlign: "center", color: "#64748b" }}>
+                          Nessuna commessa trovata con i filtri correnti.
                         </td>
                       </tr>
                     )}
-                    {filteredLines.map((line, index) => {
-                      const remainingHours = line.soldHours - line.loggedHours;
-                      const remainingDays = remainingHours / HOURS_PER_DAY;
-                      const lineKey = getLineStorageKey(line);
-                      const lineOrePianificabili = Math.max(0, remainingHours);
-                      const planned = plannedHoursByJob[line.jobNo] || { total: 0, open: 0 };
-                      const linePlanningJob: PlanningJob = {
-                        jobNo: line.jobNo,
-                        jobPlanNo: line.jobPlanNo,
-                        planDescription: line.planDescription || `Riga ${line.jobPlanNo} — ${line.jobNo}`,
-                        division: line.division,
-                        customerName: line.customerName,
-                        quantity: line.soldHours,
-                        ogreLoggate: line.loggedHours,
-                        orePianificate: line.plannedHours,
+                    {aggregates.map((job) => {
+                      const jobRemainingHours = job.soldHours - job.loggedHours;
+                      const jobRemainingDays = jobRemainingHours / HOURS_PER_DAY;
+                      const jobKey = getJobStorageKey(job.jobNo);
+                      const planned = plannedHoursByJob[job.jobNo] || { total: 0, open: 0 };
+                      const oreResidueUfficiali = Math.max(0, jobRemainingHours);
+                      const orePianificabili = Math.max(0, jobRemainingHours - planned.open);
+                      const macroJob: PlanningJob = {
+                        jobNo: job.jobNo,
+                        jobPlanNo: "",
+                        planDescription: job.mainDescription || `Task per ${job.jobNo}`,
+                        division: job.division,
+                        customerName: job.customerName,
+                        quantity: job.soldHours,
+                        ogreLoggate: job.loggedHours,
+                        orePianificate: planned.total,
                         orePianificateAperte: planned.open,
-                        oreResidueUfficiali: Math.max(0, remainingHours),
-                        orePianificabili: lineOrePianificabili
+                        oreResidueUfficiali,
+                        orePianificabili
                       };
+                      const detailLines = linesByJob.get(job.jobNo) || [];
 
                       return (
-                        <tr key={`${line.jobNo}-${line.jobPlanNo}-${index}`}>
-                          <td><strong>{line.jobNo}</strong></td>
-                          <td style={{ fontSize: "11px", color: "#64748b" }}>{line.jobPlanNo || "-"}</td>
-                          <td>{line.customerName || "-"}</td>
-                          <td style={{ maxWidth: "240px" }}>{line.planDescription || line.mainDescription || "-"}</td>
-                          <td style={{ fontSize: "11px", color: "#64748b" }}>{line.division || "-"}</td>
-                          <td className="number-col">{formatHours(line.soldHours)}</td>
-                          <td className="number-col">{formatHours(line.loggedHours)}</td>
-                          <td>
-                            <ProgressBarCell loggedHours={line.loggedHours} soldHours={line.soldHours} />
-                          </td>
-                          <td className="number-col">
-                            <span className={remainingHours < 0 ? "job-progress-negative" : ""}>
-                              {formatHours(remainingHours)}
-                            </span>
-                          </td>
-                          <td className="number-col">
-                            <span className={remainingDays < 0 ? "job-progress-negative" : ""}>
-                              {formatDays(remainingDays)}
-                            </span>
-                          </td>
-                          <td>
-                            <textarea
-                              className="job-progress-note-input"
-                              value={lineNotes[lineKey] || ""}
-                              onChange={(e) => handleLineNoteChange(lineKey, e.target.value)}
-                              placeholder="Aggiungi nota..."
-                              rows={2}
-                            />
-                          </td>
-                          <td className="actions-col">
-                            <button
-                              className="primary-small"
-                              onClick={() => onCreateTaskFromJob?.(linePlanningJob)}
-                              title={lineOrePianificabili > 0 ? `Pianifica (${lineOrePianificabili.toFixed(1)}h residue)` : "Riga già coperta — puoi comunque aggiungere"}
-                            >
-                              +
-                            </button>
-                          </td>
-                        </tr>
+                        <Fragment key={job.jobNo}>
+                          {/* Riga macro commessa */}
+                          <tr style={{ backgroundColor: "#f1f5f9", borderTop: "2px solid #cbd5e1" }}>
+                            <td>
+                              <strong style={{ fontSize: "13px" }}>{job.jobNo}</strong>
+                              <span style={{ fontSize: "11px", color: "#64748b", marginLeft: "8px" }}>{job.lineCount} {job.lineCount === 1 ? "riga" : "righe"}</span>
+                            </td>
+                            <td><strong>{job.customerName || "-"}</strong></td>
+                            <td style={{ maxWidth: "240px" }}>{job.mainDescription || "-"}</td>
+                            <td style={{ fontSize: "11px", color: "#64748b" }}>{job.division || "-"}</td>
+                            <td className="number-col"><strong>{formatHours(job.soldHours)}</strong></td>
+                            <td className="number-col"><strong>{formatHours(job.loggedHours)}</strong></td>
+                            <td>
+                              <ProgressBarCell loggedHours={job.loggedHours} soldHours={job.soldHours} />
+                            </td>
+                            <td className="number-col">
+                              <strong className={jobRemainingHours < 0 ? "job-progress-negative" : ""}>
+                                {formatHours(jobRemainingHours)}
+                              </strong>
+                            </td>
+                            <td className="number-col">
+                              <strong className={jobRemainingDays < 0 ? "job-progress-negative" : ""}>
+                                {formatDays(jobRemainingDays)}
+                              </strong>
+                            </td>
+                            <td>
+                              <textarea
+                                className="job-progress-note-input"
+                                value={lineNotes[jobKey] || ""}
+                                onChange={(e) => handleLineNoteChange(jobKey, e.target.value)}
+                                placeholder="Nota commessa..."
+                                rows={2}
+                              />
+                            </td>
+                            <td className="actions-col">
+                              <button
+                                className="primary-small"
+                                onClick={() => onCreateTaskFromJob?.(macroJob)}
+                                title={orePianificabili > 0 ? `Pianifica su commessa (${orePianificabili.toFixed(1)}h pianificabili)` : "Commessa già coperta — puoi comunque aggiungere"}
+                              >
+                                +
+                              </button>
+                            </td>
+                          </tr>
+                          {/* Righe di dettaglio — sempre visibili */}
+                          {detailLines.map((line, index) => {
+                            const remainingHours = line.soldHours - line.loggedHours;
+                            const remainingDays = remainingHours / HOURS_PER_DAY;
+                            const lineKey = getLineStorageKey(line);
+                            const lineOrePianificabili = Math.max(0, remainingHours);
+                            const linePlanningJob: PlanningJob = {
+                              jobNo: line.jobNo,
+                              jobPlanNo: line.jobPlanNo,
+                              planDescription: line.planDescription || `Riga ${line.jobPlanNo} — ${line.jobNo}`,
+                              division: line.division,
+                              customerName: line.customerName,
+                              quantity: line.soldHours,
+                              ogreLoggate: line.loggedHours,
+                              orePianificate: line.plannedHours,
+                              orePianificateAperte: 0,
+                              oreResidueUfficiali: Math.max(0, remainingHours),
+                              orePianificabili: lineOrePianificabili
+                            };
+
+                            return (
+                              <tr key={`${job.jobNo}-${line.jobPlanNo}-${index}`} style={{ backgroundColor: "#fff" }}>
+                                <td style={{ paddingLeft: "28px" }}>
+                                  <span style={{ fontSize: "11px", color: "#475569" }}>↳ {line.jobPlanNo || "-"}</span>
+                                </td>
+                                <td style={{ fontSize: "13px", color: "#475569" }}>{line.customerName || "-"}</td>
+                                <td style={{ maxWidth: "240px", fontSize: "13px" }}>{line.planDescription || "-"}</td>
+                                <td style={{ fontSize: "11px", color: "#64748b" }}>{line.division || "-"}</td>
+                                <td className="number-col">{formatHours(line.soldHours)}</td>
+                                <td className="number-col">{formatHours(line.loggedHours)}</td>
+                                <td>
+                                  <ProgressBarCell loggedHours={line.loggedHours} soldHours={line.soldHours} />
+                                </td>
+                                <td className="number-col">
+                                  <span className={remainingHours < 0 ? "job-progress-negative" : ""}>
+                                    {formatHours(remainingHours)}
+                                  </span>
+                                </td>
+                                <td className="number-col">
+                                  <span className={remainingDays < 0 ? "job-progress-negative" : ""}>
+                                    {formatDays(remainingDays)}
+                                  </span>
+                                </td>
+                                <td>
+                                  <textarea
+                                    className="job-progress-note-input"
+                                    value={lineNotes[lineKey] || ""}
+                                    onChange={(e) => handleLineNoteChange(lineKey, e.target.value)}
+                                    placeholder="Nota riga..."
+                                    rows={2}
+                                  />
+                                </td>
+                                <td className="actions-col">
+                                  <button
+                                    className="primary-small"
+                                    onClick={() => onCreateTaskFromJob?.(linePlanningJob)}
+                                    title={lineOrePianificabili > 0 ? `Pianifica riga (${lineOrePianificabili.toFixed(1)}h residue)` : "Riga già coperta — puoi comunque aggiungere"}
+                                  >
+                                    +
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </Fragment>
                       );
                     })}
                   </tbody>
