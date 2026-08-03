@@ -942,7 +942,7 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
                             <td>
                               <ActivityProgressCell
                                 value={job.enableInvoiceActivities}
-                                baseline={job.loggedActivities}
+                                baseline={job.soldHours}
                                 tone="enable"
                               />
                             </td>
@@ -950,7 +950,7 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
                             <td>
                               <ActivityProgressCell
                                 value={job.invoicedActivities}
-                                baseline={job.loggedActivities}
+                                baseline={job.soldHours}
                                 tone="invoice"
                               />
                             </td>
@@ -1020,7 +1020,7 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
                                 <td>
                                   <ActivityProgressCell
                                     value={line.enableInvoiceActivities}
-                                    baseline={line.loggedActivities}
+                                    baseline={line.soldHours}
                                     tone="enable"
                                   />
                                 </td>
@@ -1028,7 +1028,7 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
                                 <td>
                                   <ActivityProgressCell
                                     value={line.invoicedActivities}
-                                    baseline={line.loggedActivities}
+                                    baseline={line.soldHours}
                                     tone="invoice"
                                   />
                                 </td>
