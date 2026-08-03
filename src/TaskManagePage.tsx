@@ -474,6 +474,22 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
     }
   };
 
+  const handleDeleteFromModal = async (task: Task) => {
+    if (!window.confirm("Vuoi eliminare questa voce ferie?")) {
+      return;
+    }
+
+    setError(null);
+    try {
+      await deleteTask(task.id);
+      onTasksUpdate(tasks.filter((t) => t.id !== task.id));
+      setEditingTask(null);
+      setNotice("Ferie eliminate");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Errore eliminazione");
+    }
+  };
+
   const handleCreateLeave = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
@@ -1166,6 +1182,7 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
           task={editingTask}
           members={members}
           onSave={handleTaskSave}
+          onDelete={handleDeleteFromModal}
           onClose={() => setEditingTask(null)}
         />
       )}

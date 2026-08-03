@@ -12,6 +12,7 @@ interface Props {
   task: Task;
   members: Member[];
   onSave: (updated: Task) => void;
+  onDelete?: (task: Task) => void;
   onClose: () => void;
 }
 
@@ -21,7 +22,11 @@ const statusLabels: Record<TaskStatus, string> = {
   done: "Completato"
 };
 
-export default function TaskDetailModal({ task, members, onSave, onClose }: Props) {
+function isLeaveTask(task: Task): boolean {
+  return String(task.commessa || "").trim().toUpperCase() === "FERIE";
+}
+
+export default function TaskDetailModal({ task, members, onSave, onDelete, onClose }: Props) {
   const [draft, setDraft] = useState(task);
   const [error, setError] = useState<string | null>(null);
   const [jobSearch, setJobSearch] = useState("");
@@ -235,6 +240,11 @@ export default function TaskDetailModal({ task, members, onSave, onClose }: Prop
         </div>
 
         <div className="modal-footer">
+          {isLeaveTask(task) && onDelete && (
+            <button className="danger" onClick={() => onDelete(task)}>
+              Elimina ferie
+            </button>
+          )}
           <button className="secondary" onClick={onClose}>
             Annulla
           </button>
