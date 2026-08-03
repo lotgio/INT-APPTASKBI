@@ -1109,6 +1109,22 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
                             }} draggable />
                             
                             <div className="calendar-task-content">
+                              {leaveTask && (
+                                <span className="leave-icon" title="Ferie" aria-label="Ferie">F</span>
+                              )}
+                              {leaveTask && (
+                                <button
+                                  className="leave-delete-button"
+                                  type="button"
+                                  title="Elimina ferie"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    void handleDeleteTask(task.id);
+                                  }}
+                                >
+                                  x
+                                </button>
+                              )}
                               {assigneeInitial && (
                                 <span className="assignee-badge">{assigneeInitial}</span>
                               )}

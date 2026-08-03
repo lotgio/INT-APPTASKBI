@@ -316,6 +316,9 @@ export default function TaskResourceViewPage({
                               title={`${task.commessa} • ${task.client} • ${task.description} (${task.hours}h)`}
                             >
                               <div className="calendar-task-content">
+                                {isLeaveTask(task) && (
+                                  <span className="leave-icon" title="Ferie" aria-label="Ferie">F</span>
+                                )}
                                 <div>
                                   <strong>{task.client}</strong>
                                   <span className="hours">{getHoursPerDay(task)}h</span>
