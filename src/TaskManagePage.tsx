@@ -452,7 +452,12 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
   };
 
   const handleDeleteTask = async (taskId: string) => {
-    if (!window.confirm("Vuoi eliminare questo task?")) return;
+    const taskToDelete = tasks.find((t) => t.id === taskId);
+    const confirmMessage = taskToDelete && isLeaveTask(taskToDelete)
+      ? "Vuoi eliminare questa voce ferie?"
+      : "Vuoi eliminare questo task?";
+
+    if (!window.confirm(confirmMessage)) return;
 
     setError(null);
     try {
@@ -1109,14 +1114,16 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
                         const assignee = task.assigneeId ? memberMap.get(task.assigneeId) : null;
                         const leaveName = assignee?.name || task.client || "In ferie";
                         return (
-                          <div
+                          <button
+                            type="button"
                             key={`leave-${task.id}`}
                             className="calendar-leave-item"
-                            title={`${leaveName} in ferie (${task.hours}h)`}
+                            title={`Ferie di ${leaveName} (${task.hours}h) - clicca per eliminare`}
+                            onClick={() => void handleDeleteTask(task.id)}
                           >
                             <span className="calendar-leave-icon" aria-label="Ferie">F</span>
                             <span className="calendar-leave-name">{leaveName}</span>
-                          </div>
+                          </button>
                         );
                       })}
                       {scheduledDayTasks.map((task) => {
