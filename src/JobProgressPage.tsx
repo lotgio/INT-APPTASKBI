@@ -70,6 +70,13 @@ function toNumber(value: unknown): number {
   return Number.isFinite(num) ? num : 0;
 }
 
+function pickMetric(primary: unknown, fallback: number): number {
+  if (primary === null || primary === undefined || primary === "") {
+    return fallback;
+  }
+  return toNumber(primary);
+}
+
 function getProgressPercent(loggedHours: number, soldHours: number): number {
   if (soldHours <= 0) {
     return 0;
@@ -242,6 +249,10 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
       const mapped = rows.map((row): JobLine => {
         const jobNo = String(row.JobNo || "");
         const planned = plannedHoursByJob[jobNo] || { total: 0, open: 0 };
+        const loggedFallback = toNumber(row["Ore Loggate"]);
+        const invoicedFallback = toNumber(row["Ore Vendute Fatturate"]);
+        const enableFallback = toNumber(row["Ore TA PL"]) + invoicedFallback;
+
         return {
           jobNo,
           jobPlanNo: String(row.JobPlanNo || ""),
@@ -250,10 +261,10 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
           mainDescription: String(row.job_description || ""),
           planDescription: String(row["Plan Description"] || ""),
           soldHours: toNumber(row.Quantity),
-          loggedHours: toNumber(row["Ore Loggate"]),
-          loggedActivities: toNumber(row["Nr Attivita Loggate"]),
-          enableInvoiceActivities: toNumber(row["Nr Enable Invoice"]),
-          invoicedActivities: toNumber(row["Nr Fatturate"]),
+          loggedHours: loggedFallback,
+          loggedActivities: pickMetric(row["Nr Attivita Loggate"], loggedFallback),
+          enableInvoiceActivities: pickMetric(row["Nr Enable Invoice"], enableFallback),
+          invoicedActivities: pickMetric(row["Nr Fatturate"], invoicedFallback),
           plannedHours: planned.total
         };
       });
@@ -530,7 +541,7 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
           `Ore rimanenti: ${totals.remainingHours.toFixed(1)}`,
           `Giorni rimanenti: ${totals.remainingDays.toFixed(1)}`
         ],
-        ["Commessa", "Cliente", "Descrizione principale", "Division", "Venduto", "Loggato", "Attivita loggate", "Enable invoice", "Fatturate", "Avanzamento %", "Ore rimanenti", "Giorni rimanenti", "Note commessa"],
+        ["Commessa", "Cliente", "Descrizione principale", "Division", "Venduto", "Loggato", "Base confronto", "Enable invoice", "Fatturate", "Avanzamento %", "Ore rimanenti", "Giorni rimanenti", "Note commessa"],
         ...aggregates.map((job) => {
           const remainingHours = job.soldHours - job.loggedHours;
           const remainingDays = remainingHours / HOURS_PER_DAY;
@@ -556,7 +567,7 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
 
       const detailData: Array<Array<string | number>> = [
         ["Dettaglio righe commessa"],
-        ["Commessa", "Riga", "Cliente", "Division", "Descrizione principale", "Descrizione riga", "Venduto", "Loggato", "Attivita loggate", "Enable invoice", "Fatturate", "Avanzamento %", "Ore rimanenti", "Giorni rimanenti", "Note"],
+        ["Commessa", "Riga", "Cliente", "Division", "Descrizione principale", "Descrizione riga", "Venduto", "Loggato", "Base confronto", "Enable invoice", "Fatturate", "Avanzamento %", "Ore rimanenti", "Giorni rimanenti", "Note"],
         ...filteredLines.map((line) => {
           const remainingHours = line.soldHours - line.loggedHours;
           const remainingDays = remainingHours / HOURS_PER_DAY;
