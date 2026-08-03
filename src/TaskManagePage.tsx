@@ -242,9 +242,10 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
         .filter((t) => isLeaveTask(t))
         .reduce((sum, t) => sum + getTaskHoursInRange(t, monthStart, monthEnd), 0);
       const workHours = Math.max(0, assignedHours - leaveHours);
-      const percentage = availableHours > 0 ? (assignedHours / availableHours) * 100 : 0;
-      const economicValue = assignedHours * hourlyRate;
-      const remainingHours = availableHours - assignedHours;
+      const effectiveAvailableHours = Math.max(0, availableHours - leaveHours);
+      const percentage = effectiveAvailableHours > 0 ? (workHours / effectiveAvailableHours) * 100 : 0;
+      const economicValue = workHours * hourlyRate;
+      const remainingHours = effectiveAvailableHours - workHours;
 
       return {
         member,
@@ -252,6 +253,7 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
         assignedHours,
         leaveHours,
         workHours,
+        effectiveAvailableHours,
         percentage,
         remainingHours,
         economicValue
@@ -273,8 +275,10 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
     const totalAvailableHours = availableHours * members.length;
     const totalAssignedHours = memberStats.reduce((sum, stat) => sum + stat.assignedHours, 0);
     const totalLeaveHours = memberStats.reduce((sum, stat) => sum + stat.leaveHours, 0);
+    const totalWorkHours = memberStats.reduce((sum, stat) => sum + stat.workHours, 0);
+    const totalEffectiveAvailableHours = Math.max(0, totalAvailableHours - totalLeaveHours);
     const totalEconomicValue = memberStats.reduce((sum, stat) => sum + stat.economicValue, 0);
-    const totalPercentage = totalAvailableHours > 0 ? (totalAssignedHours / totalAvailableHours) * 100 : 0;
+    const totalPercentage = totalEffectiveAvailableHours > 0 ? (totalWorkHours / totalEffectiveAvailableHours) * 100 : 0;
     
     let totalMonthlyTarget = 0;
     memberStats.forEach((stat) => {
@@ -299,6 +303,8 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
       totalAvailableHours,
       totalAssignedHours,
       totalLeaveHours,
+      totalWorkHours,
+      totalEffectiveAvailableHours,
       totalEconomicValue,
       totalPercentage,
       totalMonthlyTarget
@@ -701,6 +707,9 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
           <p className="subtitle" style={{ marginTop: "4px" }}>
             Ferie pianificate nel mese: <strong>{totals.totalLeaveHours.toFixed(1)}h</strong>
           </p>
+          <p className="subtitle" style={{ marginTop: "4px" }}>
+            Occupazione su disponibilita netta: ore operative / (ore disponibili - ferie)
+          </p>
         </div>
         <div className="stats">
           <div className="kpi-card">
@@ -907,6 +916,7 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
               const totalHours = memberStat?.assignedHours ?? 0;
               const leaveHours = memberStat?.leaveHours ?? 0;
               const workHours = memberStat?.workHours ?? 0;
+              const effectiveAvailableHours = memberStat?.effectiveAvailableHours ?? availableHours;
               const percentage = memberStat?.percentage ?? 0;
               const remainingHours = memberStat?.remainingHours ?? availableHours;
               const economicValue = memberStat?.economicValue ?? 0;
@@ -953,16 +963,16 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
                   
                   <div className="member-stats">
                     <div className="member-stat-row">
-                      <span className="member-stat-label">Ore lavoro + ferie</span>
-                      <span className="member-stat-value">{totalHours}h / {availableHours}h</span>
+                      <span className="member-stat-label">Ore operative / disp. netta</span>
+                      <span className="member-stat-value">{workHours.toFixed(1)}h / {effectiveAvailableHours.toFixed(1)}h</span>
                     </div>
                     <div className="member-stat-row">
                       <span className="member-stat-label">Ferie pianificate</span>
                       <span className="member-stat-value">{leaveHours.toFixed(1)}h</span>
                     </div>
                     <div className="member-stat-row">
-                      <span className="member-stat-label">Ore operative</span>
-                      <span className="member-stat-value">{workHours.toFixed(1)}h</span>
+                      <span className="member-stat-label">Ore assegnate totali</span>
+                      <span className="member-stat-value">{totalHours.toFixed(1)}h</span>
                     </div>
                     <div className="member-stat-row">
                       <span className="member-stat-label">Valore economico:</span>
@@ -1255,7 +1265,7 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
             Statistiche per Team Member
           </h2>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "20px" }}>
-            {memberStats.map(({ member, availableHours: memAvailHours, assignedHours, leaveHours, percentage, remainingHours, economicValue }) => (
+            {memberStats.map(({ member, availableHours: memAvailHours, assignedHours, leaveHours, workHours, effectiveAvailableHours, percentage, remainingHours, economicValue }) => (
               <div
                 key={member.id}
                 style={{
@@ -1300,16 +1310,20 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
 
                 <div style={{ fontSize: "13px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", color: "#475569" }}>
-                    <span>Ore assegnate:</span>
-                    <span style={{ fontWeight: "bold", color: "#1e293b" }}>{assignedHours.toFixed(1)}h</span>
+                    <span>Ore operative:</span>
+                    <span style={{ fontWeight: "bold", color: "#1e293b" }}>{workHours.toFixed(1)}h</span>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", color: "#475569" }}>
-                    <span>Ore disponibili:</span>
-                    <span style={{ fontWeight: "bold", color: "#1e293b" }}>{memAvailHours}h</span>
+                    <span>Disponibilita netta:</span>
+                    <span style={{ fontWeight: "bold", color: "#1e293b" }}>{effectiveAvailableHours.toFixed(1)}h</span>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", color: "#475569" }}>
                     <span>Ferie pianificate:</span>
                     <span style={{ fontWeight: "bold", color: "#1e293b" }}>{leaveHours.toFixed(1)}h</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", color: "#475569" }}>
+                    <span>Ore assegnate totali:</span>
+                    <span style={{ fontWeight: "bold", color: "#1e293b" }}>{assignedHours.toFixed(1)}h</span>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", color: "#475569" }}>
                     <span>Valore economico:</span>
