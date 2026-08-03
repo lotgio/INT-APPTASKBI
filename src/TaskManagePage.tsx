@@ -1094,6 +1094,8 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
                 const dayTasks = (tasksByDate[dateKey] ?? []).filter((task) =>
                   calendarMemberFilter === "all" ? true : task.assigneeId === calendarMemberFilter
                 );
+                const leaveDayTasks = dayTasks.filter((task) => isLeaveTask(task));
+                const scheduledDayTasks = dayTasks.filter((task) => !isLeaveTask(task));
                 return (
                   <div
                     key={day.key}
@@ -1103,16 +1105,29 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
                   >
                     <span className="calendar-date">{day.date.getDate()}</span>
                     <div className="calendar-tasks">
-                      {dayTasks.map((task) => {
+                      {leaveDayTasks.map((task) => {
+                        const assignee = task.assigneeId ? memberMap.get(task.assigneeId) : null;
+                        const leaveName = assignee?.name || task.client || "In ferie";
+                        return (
+                          <div
+                            key={`leave-${task.id}`}
+                            className="calendar-leave-item"
+                            title={`${leaveName} in ferie (${task.hours}h)`}
+                          >
+                            <span className="calendar-leave-icon" aria-label="Ferie">F</span>
+                            <span className="calendar-leave-name">{leaveName}</span>
+                          </div>
+                        );
+                      })}
+                      {scheduledDayTasks.map((task) => {
                         const assignee = task.assigneeId ? memberMap.get(task.assigneeId) : null;
                         const assigneeInitial = assignee ? assignee.name.charAt(0).toUpperCase() : "";
-                        const leaveTask = isLeaveTask(task);
                         return (
                           <div
                             key={task.id}
-                            className={`calendar-task${leaveTask ? " leave" : ""}`}
+                            className="calendar-task"
                             style={{
-                              backgroundColor: leaveTask ? "#fde68a" : getAssigneeColor(task.assigneeId)
+                              backgroundColor: getAssigneeColor(task.assigneeId)
                             }}
                             title={`${task.commessa} • ${task.client} • ${task.description} (${task.hours}h)`}
                             onClick={() => setEditingTask(task)}
@@ -1125,22 +1140,6 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
                             }} draggable />
                             
                             <div className="calendar-task-content">
-                              {leaveTask && (
-                                <span className="leave-icon" title="Ferie" aria-label="Ferie">F</span>
-                              )}
-                              {leaveTask && (
-                                <button
-                                  className="leave-delete-button"
-                                  type="button"
-                                  title="Elimina ferie"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    void handleDeleteTask(task.id);
-                                  }}
-                                >
-                                  x
-                                </button>
-                              )}
                               {assigneeInitial && (
                                 <span className="assignee-badge">{assigneeInitial}</span>
                               )}

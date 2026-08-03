@@ -392,52 +392,33 @@ button:hover {
   position: relative;
 }
 
-.leave-icon {
-  position: absolute;
-  top: 2px;
-  left: 6px;
-  width: 16px;
-  height: 16px;
+.calendar-leave-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #92400e;
+  margin-bottom: 2px;
+}
+
+.calendar-leave-icon {
+  width: 14px;
+  height: 14px;
   border-radius: 999px;
   background: #d97706;
   color: #ffffff;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  line-height: 1;
-}
-
-.leave-delete-button {
-  position: absolute;
-  top: 2px;
-  right: 4px;
-  width: 18px;
-  height: 18px;
-  border: none;
-  border-radius: 999px;
-  background: rgba(153, 27, 27, 0.9);
-  color: #ffffff;
-  font-size: 11px;
-  font-weight: 700;
-  padding: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
+  line-height: 1;
+  flex-shrink: 0;
 }
 
-.leave-delete-button:hover {
-  background: #991b1b;
-  transform: none;
-  box-shadow: none;
-}
-
-.calendar-task.leave .calendar-task-content > div,
-.calendar-task.leave .calendar-task-desc,
-.calendar-task.leave .calendar-task-meta {
-  margin-left: 18px;
+.calendar-leave-name {
+  text-decoration: line-through;
+  font-weight: 600;
 }
 
 .calendar-task-content > div {
@@ -993,10 +974,6 @@ button:hover {
   display: flex;
   flex-direction: column;
   gap: 16px;
-}
-
-.calendar-task.leave {
-  border-left: 3px solid #d97706;
 }
 
 .calendar-header {

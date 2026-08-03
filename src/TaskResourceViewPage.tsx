@@ -296,6 +296,8 @@ export default function TaskResourceViewPage({
                   {days.map((day) => {
                     const dateKey = formatDate(day.date);
                     const dayTasks = tasksByDate[dateKey] ?? [];
+                    const leaveDayTasks = dayTasks.filter((task) => isLeaveTask(task));
+                    const scheduledDayTasks = dayTasks.filter((task) => !isLeaveTask(task));
                     const inRange = day.date >= normalizedRange.start && day.date <= normalizedRange.end;
                     const isMuted = !day.inMonth || !inRange;
 
@@ -306,19 +308,26 @@ export default function TaskResourceViewPage({
                       >
                         <span className="calendar-date">{day.date.getDate()}</span>
                         <div className="calendar-tasks">
-                          {dayTasks.map((task) => (
+                          {leaveDayTasks.map((task) => (
+                            <div
+                              key={`leave-${task.id}`}
+                              className="calendar-leave-item"
+                              title={`${task.client || "Risorsa"} in ferie (${task.hours}h)`}
+                            >
+                              <span className="calendar-leave-icon" aria-label="Ferie">F</span>
+                              <span className="calendar-leave-name">{task.client || "Risorsa"}</span>
+                            </div>
+                          ))}
+                          {scheduledDayTasks.map((task) => (
                             <div
                               key={task.id}
-                              className={`calendar-task${isLeaveTask(task) ? " leave" : ""}`}
+                              className="calendar-task"
                               style={{
-                                backgroundColor: isLeaveTask(task) ? "#fde68a" : getAssigneeColor(task.assigneeId)
+                                backgroundColor: getAssigneeColor(task.assigneeId)
                               }}
                               title={`${task.commessa} • ${task.client} • ${task.description} (${task.hours}h)`}
                             >
                               <div className="calendar-task-content">
-                                {isLeaveTask(task) && (
-                                  <span className="leave-icon" title="Ferie" aria-label="Ferie">F</span>
-                                )}
                                 <div>
                                   <strong>{task.client}</strong>
                                   <span className="hours">{getHoursPerDay(task)}h</span>
