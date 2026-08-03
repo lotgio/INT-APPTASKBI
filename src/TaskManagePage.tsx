@@ -912,6 +912,7 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
           <h2>Membri team</h2>
           <div className="members-list">
             {members.map((member) => {
+              const year = currentMonth.getFullYear();
               const memberStat = memberStatsMap.get(member.id);
               const totalHours = memberStat?.assignedHours ?? 0;
               const leaveHours = memberStat?.leaveHours ?? 0;
