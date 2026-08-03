@@ -473,6 +473,14 @@ button:hover {
   background: linear-gradient(90deg, #38bdf8, #3b82f6);
 }
 
+.job-progress-fill.enable {
+  background: linear-gradient(90deg, #facc15, #f59e0b);
+}
+
+.job-progress-fill.invoice {
+  background: linear-gradient(90deg, #34d399, #10b981);
+}
+
 .job-progress-fill.overrun {
   background: linear-gradient(90deg, #f59e0b, #ef4444);
 }

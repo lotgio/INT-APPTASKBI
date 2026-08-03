@@ -18,6 +18,9 @@ interface JobLine {
   planDescription: string;
   soldHours: number;
   loggedHours: number;
+  loggedActivities: number;
+  enableInvoiceActivities: number;
+  invoicedActivities: number;
   plannedHours: number;
 }
 
@@ -28,6 +31,9 @@ interface JobAggregate {
   mainDescription: string;
   soldHours: number;
   loggedHours: number;
+  loggedActivities: number;
+  enableInvoiceActivities: number;
+  invoicedActivities: number;
   lineCount: number;
 }
 
@@ -105,6 +111,32 @@ function ProgressBarCell({ loggedHours, soldHours }: { loggedHours: number; sold
       <div className="job-progress-track">
         <div
           className={`job-progress-fill ${overrun ? "overrun" : "normal"}`}
+          style={{ width: `${width}%` }}
+        />
+      </div>
+      <span className={`job-progress-text ${overrun ? "overrun" : ""}`}>{percent.toFixed(1)}%</span>
+    </div>
+  );
+}
+
+function ActivityProgressCell({
+  value,
+  baseline,
+  tone
+}: {
+  value: number;
+  baseline: number;
+  tone: "enable" | "invoice";
+}) {
+  const percent = getProgressPercent(value, baseline);
+  const width = Math.min(percent, 100);
+  const overrun = percent > 100;
+
+  return (
+    <div className="job-progress-cell">
+      <div className="job-progress-track">
+        <div
+          className={`job-progress-fill ${overrun ? "overrun" : tone}`}
           style={{ width: `${width}%` }}
         />
       </div>
@@ -219,6 +251,9 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
           planDescription: String(row["Plan Description"] || ""),
           soldHours: toNumber(row.Quantity),
           loggedHours: toNumber(row["Ore Loggate"]),
+          loggedActivities: toNumber(row["Nr Attivita Loggate"]),
+          enableInvoiceActivities: toNumber(row["Nr Enable Invoice"]),
+          invoicedActivities: toNumber(row["Nr Fatturate"]),
           plannedHours: planned.total
         };
       });
@@ -383,6 +418,9 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
           mainDescription: line.mainDescription,
           soldHours: line.soldHours,
           loggedHours: line.loggedHours,
+          loggedActivities: line.loggedActivities,
+          enableInvoiceActivities: line.enableInvoiceActivities,
+          invoicedActivities: line.invoicedActivities,
           lineCount: 1
         });
         return;
@@ -393,6 +431,9 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
       }
       existing.soldHours += line.soldHours;
       existing.loggedHours += line.loggedHours;
+      existing.loggedActivities += line.loggedActivities;
+      existing.enableInvoiceActivities += line.enableInvoiceActivities;
+      existing.invoicedActivities += line.invoicedActivities;
       existing.lineCount += 1;
     });
 
@@ -419,11 +460,17 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
   const totals = useMemo(() => {
     const soldHours = filteredLines.reduce((sum, line) => sum + line.soldHours, 0);
     const loggedHours = filteredLines.reduce((sum, line) => sum + line.loggedHours, 0);
+    const loggedActivities = filteredLines.reduce((sum, line) => sum + line.loggedActivities, 0);
+    const enableInvoiceActivities = filteredLines.reduce((sum, line) => sum + line.enableInvoiceActivities, 0);
+    const invoicedActivities = filteredLines.reduce((sum, line) => sum + line.invoicedActivities, 0);
     const remainingHours = soldHours - loggedHours;
 
     return {
       soldHours,
       loggedHours,
+      loggedActivities,
+      enableInvoiceActivities,
+      invoicedActivities,
       remainingHours,
       remainingDays: remainingHours / HOURS_PER_DAY
     };
@@ -478,10 +525,12 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
           `Totale righe: ${filteredLines.length}`,
           `Ore vendute: ${totals.soldHours.toFixed(1)}`,
           `Ore loggate: ${totals.loggedHours.toFixed(1)}`,
+          `Enable invoice: ${totals.enableInvoiceActivities.toFixed(0)}`,
+          `Fatturate: ${totals.invoicedActivities.toFixed(0)}`,
           `Ore rimanenti: ${totals.remainingHours.toFixed(1)}`,
           `Giorni rimanenti: ${totals.remainingDays.toFixed(1)}`
         ],
-        ["Commessa", "Cliente", "Descrizione principale", "Division", "Venduto", "Loggato", "Avanzamento %", "Ore rimanenti", "Giorni rimanenti", "Note commessa"],
+        ["Commessa", "Cliente", "Descrizione principale", "Division", "Venduto", "Loggato", "Attivita loggate", "Enable invoice", "Fatturate", "Avanzamento %", "Ore rimanenti", "Giorni rimanenti", "Note commessa"],
         ...aggregates.map((job) => {
           const remainingHours = job.soldHours - job.loggedHours;
           const remainingDays = remainingHours / HOURS_PER_DAY;
@@ -494,6 +543,9 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
             job.division || "-",
             job.soldHours,
             job.loggedHours,
+            job.loggedActivities,
+            job.enableInvoiceActivities,
+            job.invoicedActivities,
             progress,
             remainingHours,
             remainingDays,
@@ -504,7 +556,7 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
 
       const detailData: Array<Array<string | number>> = [
         ["Dettaglio righe commessa"],
-        ["Commessa", "Riga", "Cliente", "Division", "Descrizione principale", "Descrizione riga", "Venduto", "Loggato", "Avanzamento %", "Ore rimanenti", "Giorni rimanenti", "Note"],
+        ["Commessa", "Riga", "Cliente", "Division", "Descrizione principale", "Descrizione riga", "Venduto", "Loggato", "Attivita loggate", "Enable invoice", "Fatturate", "Avanzamento %", "Ore rimanenti", "Giorni rimanenti", "Note"],
         ...filteredLines.map((line) => {
           const remainingHours = line.soldHours - line.loggedHours;
           const remainingDays = remainingHours / HOURS_PER_DAY;
@@ -519,6 +571,9 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
             line.planDescription || "-",
             line.soldHours,
             line.loggedHours,
+            line.loggedActivities,
+            line.enableInvoiceActivities,
+            line.invoicedActivities,
             progress,
             remainingHours,
             remainingDays,
@@ -538,6 +593,9 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
         { wch: 12 },
         { wch: 12 },
         { wch: 12 },
+        { wch: 12 },
+        { wch: 12 },
+        { wch: 12 },
         { wch: 14 },
         { wch: 16 },
         { wch: 18 },
@@ -551,6 +609,9 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
         { wch: 12 },
         { wch: 32 },
         { wch: 36 },
+        { wch: 12 },
+        { wch: 12 },
+        { wch: 12 },
         { wch: 12 },
         { wch: 12 },
         { wch: 14 },
@@ -600,13 +661,13 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
         ws[addr].s = style;
       };
 
-      for (let c = 0; c < 10; c += 1) {
+      for (let c = 0; c < 13; c += 1) {
         applyStyle(wsSummary, 0, c, titleStyle);
         applyStyle(wsSummary, 6, c, headerStyle);
       }
 
       for (let r = 1; r < summaryData.length; r += 1) {
-        for (let c = 0; c < 10; c += 1) {
+        for (let c = 0; c < 13; c += 1) {
           applyStyle(wsSummary, r, c, baseStyle);
         }
       }
@@ -618,19 +679,19 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
         const remainingDays = remainingHours / HOURS_PER_DAY;
         const progress = getProgressPercent(job.loggedHours, job.soldHours);
 
-        [4, 5, 6, 7, 8].forEach((col) => applyStyle(wsSummary, row, col, numberStyle));
-        if (progress > 100) applyStyle(wsSummary, row, 6, negativeNumberStyle);
-        if (remainingHours < 0) applyStyle(wsSummary, row, 7, negativeNumberStyle);
-        if (remainingDays < 0) applyStyle(wsSummary, row, 8, negativeNumberStyle);
+        [4, 5, 6, 7, 8, 9, 10, 11].forEach((col) => applyStyle(wsSummary, row, col, numberStyle));
+        if (progress > 100) applyStyle(wsSummary, row, 9, negativeNumberStyle);
+        if (remainingHours < 0) applyStyle(wsSummary, row, 10, negativeNumberStyle);
+        if (remainingDays < 0) applyStyle(wsSummary, row, 11, negativeNumberStyle);
       }
 
-      for (let c = 0; c < 12; c += 1) {
+      for (let c = 0; c < 15; c += 1) {
         applyStyle(wsDetail, 0, c, titleStyle);
         applyStyle(wsDetail, 1, c, headerStyle);
       }
 
       for (let r = 2; r < detailData.length; r += 1) {
-        for (let c = 0; c < 12; c += 1) {
+        for (let c = 0; c < 15; c += 1) {
           applyStyle(wsDetail, r, c, baseStyle);
         }
       }
@@ -642,10 +703,10 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
         const remainingDays = remainingHours / HOURS_PER_DAY;
         const progress = getProgressPercent(line.loggedHours, line.soldHours);
 
-        [6, 7, 8, 9, 10].forEach((col) => applyStyle(wsDetail, row, col, numberStyle));
-        if (progress > 100) applyStyle(wsDetail, row, 8, negativeNumberStyle);
-        if (remainingHours < 0) applyStyle(wsDetail, row, 9, negativeNumberStyle);
-        if (remainingDays < 0) applyStyle(wsDetail, row, 10, negativeNumberStyle);
+        [6, 7, 8, 9, 10, 11, 12, 13].forEach((col) => applyStyle(wsDetail, row, col, numberStyle));
+        if (progress > 100) applyStyle(wsDetail, row, 11, negativeNumberStyle);
+        if (remainingHours < 0) applyStyle(wsDetail, row, 12, negativeNumberStyle);
+        if (remainingDays < 0) applyStyle(wsDetail, row, 13, negativeNumberStyle);
       }
 
       XLSX.utils.book_append_sheet(wb, wsSummary, "Riepilogo");
@@ -685,6 +746,18 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
             <div className="kpi-header">
               <span className="kpi-label">Ore loggate</span>
               <span className="kpi-value">{totals.loggedHours.toFixed(1)}</span>
+            </div>
+          </div>
+          <div className="kpi-card">
+            <div className="kpi-header">
+              <span className="kpi-label">Enable invoice</span>
+              <span className="kpi-value">{totals.enableInvoiceActivities.toFixed(0)}</span>
+            </div>
+          </div>
+          <div className="kpi-card">
+            <div className="kpi-header">
+              <span className="kpi-label">Fatturate</span>
+              <span className="kpi-value">{totals.invoicedActivities.toFixed(0)}</span>
             </div>
           </div>
         </div>
@@ -794,6 +867,10 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
                       <th className="number-col">Venduto</th>
                       <th className="number-col">Loggato</th>
                       <th>Avanzamento</th>
+                      <th className="number-col">Enable Invoice</th>
+                      <th>Avz Enable</th>
+                      <th className="number-col">Fatturate</th>
+                      <th>Avz Fatturate</th>
                       <th className="number-col">Ore rimanenti</th>
                       <th className="number-col">Giorni rimanenti</th>
                       <th>Note</th>
@@ -803,7 +880,7 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
                   <tbody>
                     {aggregates.length === 0 && (
                       <tr>
-                        <td colSpan={11} style={{ textAlign: "center", color: "#64748b" }}>
+                        <td colSpan={15} style={{ textAlign: "center", color: "#64748b" }}>
                           Nessuna commessa trovata con i filtri correnti.
                         </td>
                       </tr>
@@ -849,6 +926,22 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
                             <td className="number-col"><strong>{formatHours(job.loggedHours)}</strong></td>
                             <td>
                               <ProgressBarCell loggedHours={job.loggedHours} soldHours={job.soldHours} />
+                            </td>
+                            <td className="number-col"><strong>{job.enableInvoiceActivities.toFixed(0)}</strong></td>
+                            <td>
+                              <ActivityProgressCell
+                                value={job.enableInvoiceActivities}
+                                baseline={job.loggedActivities}
+                                tone="enable"
+                              />
+                            </td>
+                            <td className="number-col"><strong>{job.invoicedActivities.toFixed(0)}</strong></td>
+                            <td>
+                              <ActivityProgressCell
+                                value={job.invoicedActivities}
+                                baseline={job.loggedActivities}
+                                tone="invoice"
+                              />
                             </td>
                             <td className="number-col">
                               <strong className={jobRemainingHours < 0 ? "job-progress-negative" : ""}>
@@ -911,6 +1004,22 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
                                 <td className="number-col">{formatHours(line.loggedHours)}</td>
                                 <td>
                                   <ProgressBarCell loggedHours={line.loggedHours} soldHours={line.soldHours} />
+                                </td>
+                                <td className="number-col">{line.enableInvoiceActivities.toFixed(0)}</td>
+                                <td>
+                                  <ActivityProgressCell
+                                    value={line.enableInvoiceActivities}
+                                    baseline={line.loggedActivities}
+                                    tone="enable"
+                                  />
+                                </td>
+                                <td className="number-col">{line.invoicedActivities.toFixed(0)}</td>
+                                <td>
+                                  <ActivityProgressCell
+                                    value={line.invoicedActivities}
+                                    baseline={line.loggedActivities}
+                                    tone="invoice"
+                                  />
                                 </td>
                                 <td className="number-col">
                                   <span className={remainingHours < 0 ? "job-progress-negative" : ""}>

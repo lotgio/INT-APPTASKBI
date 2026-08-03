@@ -101,6 +101,13 @@ SELECT
     JD.job_description AS [Detail Description],
     JD.job_fixedprice AS [Fixed Price],
     J.job_DocumentDate,
+    ISNULL(COUNT(CASE WHEN sa.ass_jobdetail IS NOT NULL THEN 1 END), 0) AS [Nr Attivita Loggate],
+    ISNULL(SUM(CASE WHEN ISNULL(sa.ass_bill_autorizzed, 0) <> 0 AND ISNULL(sa.ass_billed_blocked_by_administration, 0) <> 1
+                    THEN 1
+                    ELSE 0 END), 0) AS [Nr Enable Invoice],
+    ISNULL(SUM(CASE WHEN ISNULL(sa.ass_InvoiceNumber, N'') <> ''
+                    THEN 1
+                    ELSE 0 END), 0) AS [Nr Fatturate],
     ISNULL(SUM(ISNULL(sa.ass_netactivityduration, 0) - ISNULL(sa.ass_Pausa, 0)), 0) / 60.0 AS [Ore Loggate],
     ISNULL(SUM(CASE WHEN ISNULL(sa.ass_InvoiceNumber, N'') <> ''
                     THEN ISNULL(sa.ass_i_activityduration, 0) - ISNULL(sa.ass_i_break, 0)
