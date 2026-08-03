@@ -261,8 +261,9 @@ export async function createTask(payload: Partial<Task> & Pick<Task, "commessa" 
       hours: payload.hours,
       startdate: payload.startDate,
       enddate: payload.endDate,
-      status: payload.status || "pending",
+      status: payload.status || "todo",
       teamid: payload.teamId || "default",
+      assigneeid: payload.assigneeId || null,
       createdat: payload.createdAt || new Date().toISOString()
     };
     const { error } = await supabase.from("tasks").insert([dbPayload]);

@@ -1,5 +1,5 @@
 import { useMemo, useState, useRef } from "react";
-import { updateTask, deleteTask } from "./api";
+import { createTask, updateTask, deleteTask } from "./api";
 import type { Member, Task, TaskStatus } from "./types";
 import TaskDetailModal from "./TaskDetailModal";
 import TaskCreateModal from "./TaskCreateModal";
@@ -151,6 +151,34 @@ function getHoursPerDay(task: Task): number {
   return task.hours;
 }
 
+function isLeaveTask(task: Task): boolean {
+  return String(task.commessa || "").trim().toUpperCase() === "FERIE";
+}
+
+function getTaskHoursInRange(task: Task, rangeStart: Date, rangeEnd: Date): number {
+  if (!task.startDate || !task.endDate) {
+    return 0;
+  }
+
+  const taskStart = new Date(task.startDate);
+  const taskEnd = new Date(task.endDate);
+  if (taskEnd < rangeStart || taskStart > rangeEnd) {
+    return 0;
+  }
+
+  const overlapStart = new Date(Math.max(taskStart.getTime(), rangeStart.getTime()));
+  const overlapEnd = new Date(Math.min(taskEnd.getTime(), rangeEnd.getTime()));
+
+  const totalDays = Math.floor((taskEnd.getTime() - taskStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+  const overlapDays = Math.floor((overlapEnd.getTime() - overlapStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+  if (totalDays <= 0 || overlapDays <= 0) {
+    return 0;
+  }
+
+  return (task.hours * overlapDays) / totalDays;
+}
+
 export default function TaskManagePage({ tasks, members, onTasksUpdate, onMembersUpdate, onSwitchPage }: Props) {
   const [currentMonth, setCurrentMonth] = useState(() => {
     const now = new Date();
@@ -166,6 +194,17 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showTeamModal, setShowTeamModal] = useState(false);
   const [showExportStats, setShowExportStats] = useState(false);
+  const [leaveDraft, setLeaveDraft] = useState(() => {
+    const today = formatDate(new Date());
+    return {
+      memberId: "",
+      startDate: today,
+      endDate: today,
+      quantity: 1,
+      unit: "days" as "days" | "hours",
+      note: ""
+    };
+  });
 
   const workingDays = useMemo(() => getWorkingDaysInMonth(currentMonth), [currentMonth]);
   const availableHours = workingDays * 8;
@@ -198,7 +237,11 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
         return taskStart <= monthEnd && taskEnd >= monthStart;
       });
 
-      const assignedHours = memberTasks.reduce((sum, t) => sum + t.hours, 0);
+      const assignedHours = memberTasks.reduce((sum, t) => sum + getTaskHoursInRange(t, monthStart, monthEnd), 0);
+      const leaveHours = memberTasks
+        .filter((t) => isLeaveTask(t))
+        .reduce((sum, t) => sum + getTaskHoursInRange(t, monthStart, monthEnd), 0);
+      const workHours = Math.max(0, assignedHours - leaveHours);
       const percentage = availableHours > 0 ? (assignedHours / availableHours) * 100 : 0;
       const economicValue = assignedHours * hourlyRate;
       const remainingHours = availableHours - assignedHours;
@@ -207,12 +250,19 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
         member,
         availableHours,
         assignedHours,
+        leaveHours,
+        workHours,
         percentage,
         remainingHours,
         economicValue
       };
     });
   }, [tasks, members, availableHours, currentMonth]);
+
+  const memberStatsMap = useMemo(
+    () => new Map(memberStats.map((stat) => [stat.member.id, stat])),
+    [memberStats]
+  );
 
   const totals = useMemo(() => {
     const year = currentMonth.getFullYear();
@@ -222,6 +272,7 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
 
     const totalAvailableHours = availableHours * members.length;
     const totalAssignedHours = memberStats.reduce((sum, stat) => sum + stat.assignedHours, 0);
+    const totalLeaveHours = memberStats.reduce((sum, stat) => sum + stat.leaveHours, 0);
     const totalEconomicValue = memberStats.reduce((sum, stat) => sum + stat.economicValue, 0);
     const totalPercentage = totalAvailableHours > 0 ? (totalAssignedHours / totalAvailableHours) * 100 : 0;
     
@@ -247,6 +298,7 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
     return {
       totalAvailableHours,
       totalAssignedHours,
+      totalLeaveHours,
       totalEconomicValue,
       totalPercentage,
       totalMonthlyTarget
@@ -416,6 +468,70 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
     }
   };
 
+  const handleCreateLeave = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setError(null);
+    setNotice(null);
+
+    if (!leaveDraft.memberId) {
+      setError("Seleziona una risorsa per registrare le ferie.");
+      return;
+    }
+
+    if (!leaveDraft.startDate || !leaveDraft.endDate) {
+      setError("Imposta il periodo ferie (dal/al).");
+      return;
+    }
+
+    if (leaveDraft.quantity <= 0) {
+      setError("Inserisci una quantita maggiore di zero.");
+      return;
+    }
+
+    const start = new Date(leaveDraft.startDate);
+    const end = new Date(leaveDraft.endDate);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      setError("Date ferie non valide.");
+      return;
+    }
+
+    const normalizedStart = start <= end ? leaveDraft.startDate : leaveDraft.endDate;
+    const normalizedEnd = start <= end ? leaveDraft.endDate : leaveDraft.startDate;
+    const totalHours = leaveDraft.unit === "days"
+      ? leaveDraft.quantity * 8
+      : leaveDraft.quantity;
+
+    const selectedMember = members.find((m) => m.id === leaveDraft.memberId);
+    const leaveDescription = leaveDraft.note.trim()
+      ? `Ferie - ${leaveDraft.note.trim()}`
+      : "Ferie";
+
+    try {
+      const created = await createTask({
+        commessa: "FERIE",
+        description: leaveDescription,
+        client: selectedMember?.name || "Team",
+        hours: Number(totalHours.toFixed(2)),
+        status: "done",
+        assigneeId: leaveDraft.memberId,
+        startDate: normalizedStart,
+        endDate: normalizedEnd,
+        teamId: "leave"
+      });
+
+      onTasksUpdate([created, ...tasks]);
+      setNotice("Ferie registrate e incluse nel carico risorsa.");
+      setLeaveDraft((prev) => ({
+        ...prev,
+        quantity: 1,
+        unit: "days",
+        note: ""
+      }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Errore registrazione ferie");
+    }
+  };
+
   const calendarRef = useRef<HTMLDivElement>(null);
   const statsRef = useRef<HTMLDivElement>(null);
 
@@ -582,6 +698,9 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
           <p className="eyebrow">Reparto operativo</p>
           <h1>Gestione task con calendario</h1>
           <p className="subtitle">Assegna task dai team member e visualizza nel calendario.</p>
+          <p className="subtitle" style={{ marginTop: "4px" }}>
+            Ferie pianificate nel mese: <strong>{totals.totalLeaveHours.toFixed(1)}h</strong>
+          </p>
         </div>
         <div className="stats">
           <div className="kpi-card">
@@ -682,30 +801,115 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
             </div>
           )}
 
+          <h2>Ferie / assenze</h2>
+          <form className="leave-form" onSubmit={handleCreateLeave}>
+            <label>
+              Risorsa
+              <select
+                required
+                value={leaveDraft.memberId}
+                onChange={(event) =>
+                  setLeaveDraft((prev) => ({ ...prev, memberId: event.target.value }))
+                }
+              >
+                <option value="">Seleziona risorsa</option>
+                {members.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <div className="leave-form-grid">
+              <label>
+                Dal
+                <input
+                  type="date"
+                  required
+                  value={leaveDraft.startDate}
+                  onChange={(event) =>
+                    setLeaveDraft((prev) => ({ ...prev, startDate: event.target.value }))
+                  }
+                />
+              </label>
+              <label>
+                Al
+                <input
+                  type="date"
+                  required
+                  value={leaveDraft.endDate}
+                  onChange={(event) =>
+                    setLeaveDraft((prev) => ({ ...prev, endDate: event.target.value }))
+                  }
+                />
+              </label>
+            </div>
+
+            <div className="leave-form-grid">
+              <label>
+                Unita
+                <select
+                  value={leaveDraft.unit}
+                  onChange={(event) =>
+                    setLeaveDraft((prev) => ({
+                      ...prev,
+                      unit: event.target.value as "days" | "hours"
+                    }))
+                  }
+                >
+                  <option value="days">Giornate</option>
+                  <option value="hours">Ore</option>
+                </select>
+              </label>
+              <label>
+                Quantita
+                <input
+                  type="number"
+                  required
+                  min="0.5"
+                  step="0.5"
+                  value={leaveDraft.quantity}
+                  onChange={(event) =>
+                    setLeaveDraft((prev) => ({
+                      ...prev,
+                      quantity: Number(event.target.value) || 0
+                    }))
+                  }
+                />
+              </label>
+            </div>
+
+            <label>
+              Nota (opzionale)
+              <input
+                value={leaveDraft.note}
+                onChange={(event) =>
+                  setLeaveDraft((prev) => ({ ...prev, note: event.target.value }))
+                }
+                placeholder="Es. ferie estive"
+              />
+            </label>
+
+            <div className="leave-form-hint">
+              Impegno calcolato: {leaveDraft.unit === "days"
+                ? `${(leaveDraft.quantity * 8).toFixed(1)}h`
+                : `${leaveDraft.quantity.toFixed(1)}h`}
+            </div>
+
+            <button type="submit" className="secondary-small">Registra ferie</button>
+          </form>
+
           <h2>Membri team</h2>
           <div className="members-list">
             {members.map((member) => {
-              const year = currentMonth.getFullYear();
-              const month = currentMonth.getMonth();
-              
-              // Filtra solo i task del mese corrente
-              const memberTasks = tasks.filter((t) => {
-                if (t.assigneeId !== member.id) return false;
-                if (!t.startDate || !t.endDate) return false;
-                
-                const taskStart = new Date(t.startDate);
-                const taskEnd = new Date(t.endDate);
-                const monthStart = new Date(year, month, 1);
-                const monthEnd = new Date(year, month + 1, 0);
-                
-                // Il task è nel mese se c'è sovrapposizione tra il periodo del task e il mese
-                return taskStart <= monthEnd && taskEnd >= monthStart;
-              });
-              
-              const totalHours = memberTasks.reduce((sum, t) => sum + t.hours, 0);
-              const percentage = availableHours > 0 ? (totalHours / availableHours) * 100 : 0;
-              const remainingHours = availableHours - totalHours;
-              const economicValue = totalHours * hourlyRate;
+              const memberStat = memberStatsMap.get(member.id);
+              const totalHours = memberStat?.assignedHours ?? 0;
+              const leaveHours = memberStat?.leaveHours ?? 0;
+              const workHours = memberStat?.workHours ?? 0;
+              const percentage = memberStat?.percentage ?? 0;
+              const remainingHours = memberStat?.remainingHours ?? availableHours;
+              const economicValue = memberStat?.economicValue ?? 0;
               
               // Calcola il target mensile pesato
               let monthlyTarget = 0;
@@ -749,8 +953,16 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
                   
                   <div className="member-stats">
                     <div className="member-stat-row">
-                      <span className="member-stat-label">{memberTasks.length} task</span>
+                      <span className="member-stat-label">Ore lavoro + ferie</span>
                       <span className="member-stat-value">{totalHours}h / {availableHours}h</span>
+                    </div>
+                    <div className="member-stat-row">
+                      <span className="member-stat-label">Ferie pianificate</span>
+                      <span className="member-stat-value">{leaveHours.toFixed(1)}h</span>
+                    </div>
+                    <div className="member-stat-row">
+                      <span className="member-stat-label">Ore operative</span>
+                      <span className="member-stat-value">{workHours.toFixed(1)}h</span>
                     </div>
                     <div className="member-stat-row">
                       <span className="member-stat-label">Valore economico:</span>
@@ -867,12 +1079,13 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
                       {dayTasks.map((task) => {
                         const assignee = task.assigneeId ? memberMap.get(task.assigneeId) : null;
                         const assigneeInitial = assignee ? assignee.name.charAt(0).toUpperCase() : "";
+                        const leaveTask = isLeaveTask(task);
                         return (
                           <div
                             key={task.id}
-                            className="calendar-task"
+                            className={`calendar-task${leaveTask ? " leave" : ""}`}
                             style={{
-                              backgroundColor: getAssigneeColor(task.assigneeId)
+                              backgroundColor: leaveTask ? "#fde68a" : getAssigneeColor(task.assigneeId)
                             }}
                             title={`${task.commessa} • ${task.client} • ${task.description} (${task.hours}h)`}
                             onClick={() => setEditingTask(task)}
@@ -1042,7 +1255,7 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
             Statistiche per Team Member
           </h2>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "20px" }}>
-            {memberStats.map(({ member, availableHours: memAvailHours, assignedHours, percentage, remainingHours, economicValue }) => (
+            {memberStats.map(({ member, availableHours: memAvailHours, assignedHours, leaveHours, percentage, remainingHours, economicValue }) => (
               <div
                 key={member.id}
                 style={{
@@ -1093,6 +1306,10 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", color: "#475569" }}>
                     <span>Ore disponibili:</span>
                     <span style={{ fontWeight: "bold", color: "#1e293b" }}>{memAvailHours}h</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", color: "#475569" }}>
+                    <span>Ferie pianificate:</span>
+                    <span style={{ fontWeight: "bold", color: "#1e293b" }}>{leaveHours.toFixed(1)}h</span>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", color: "#475569" }}>
                     <span>Valore economico:</span>

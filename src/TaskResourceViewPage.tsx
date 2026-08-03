@@ -125,6 +125,10 @@ function getHoursPerDay(task: Task): number {
   return task.hours;
 }
 
+function isLeaveTask(task: Task): boolean {
+  return String(task.commessa || "").trim().toUpperCase() === "FERIE";
+}
+
 export default function TaskResourceViewPage({
   tasks,
   members,
@@ -305,9 +309,9 @@ export default function TaskResourceViewPage({
                           {dayTasks.map((task) => (
                             <div
                               key={task.id}
-                              className="calendar-task"
+                              className={`calendar-task${isLeaveTask(task) ? " leave" : ""}`}
                               style={{
-                                backgroundColor: getAssigneeColor(task.assigneeId)
+                                backgroundColor: isLeaveTask(task) ? "#fde68a" : getAssigneeColor(task.assigneeId)
                               }}
                               title={`${task.commessa} • ${task.client} • ${task.description} (${task.hours}h)`}
                             >
