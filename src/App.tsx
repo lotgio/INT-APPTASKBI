@@ -186,6 +186,20 @@ export default function App() {
         >
           Avanzamento
         </button>
+        <button
+          onClick={() => setPage("team")}
+          style={{
+            padding: "8px 16px",
+            backgroundColor: page === "team" ? "#0f172a" : "white",
+            color: page === "team" ? "white" : "#0f172a",
+            border: "1px solid #ccc",
+            borderRadius: "4px",
+            cursor: "pointer",
+            fontSize: "14px",
+          }}
+        >
+          Team
+        </button>
       </div>
       {page === "create" ? (
         <TaskCreatePage
