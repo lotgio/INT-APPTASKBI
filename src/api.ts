@@ -129,6 +129,7 @@ export async function getMembers(): Promise<Member[]> {
       email: m.email,
       role: m.role,
       avatar: m.avatar,
+      group: m.membergroup || undefined,
       annualTarget: m.annualtarget
     })) as Member[];
   }
@@ -146,6 +147,7 @@ export async function createMember(payload: Omit<Member, "id"> & { id?: string }
       email: payload.email || null,
       role: payload.role || null,
       avatar: payload.avatar || null,
+      membergroup: payload.group || null,
       annualtarget: (payload as any).annualTarget || null
     };
     const { error } = await supabase.from("members").insert([dbMember]);
@@ -172,6 +174,7 @@ export async function updateMember(id: string, payload: Partial<Member>): Promis
     if (payload.email !== undefined) dbPayload.email = payload.email;
     if (payload.role !== undefined) dbPayload.role = payload.role;
     if (payload.avatar !== undefined) dbPayload.avatar = payload.avatar;
+    if (payload.group !== undefined) dbPayload.membergroup = payload.group || null;
     if ((payload as any).annualTarget !== undefined) dbPayload.annualtarget = (payload as any).annualTarget;
 
     const { data, error } = await supabase
@@ -187,6 +190,7 @@ export async function updateMember(id: string, payload: Partial<Member>): Promis
       email: data.email,
       role: data.role,
       avatar: data.avatar,
+      group: data.membergroup || undefined,
       annualTarget: data.annualtarget
     } as Member;
   }

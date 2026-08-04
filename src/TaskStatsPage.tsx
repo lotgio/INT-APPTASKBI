@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { Member, Task } from "./types";
 
 interface Props {
@@ -67,6 +67,7 @@ export default function TaskStatsPage({ tasks, members, currentMonth, onSwitchPa
   const workingDays = useMemo(() => getWorkingDaysInMonth(currentMonth), [currentMonth]);
   const availableHours = workingDays * 8;
   const hourlyRate = 75; // €/ora
+  const [groupFilter, setGroupFilter] = useState<"all" | "bi" | "crm">("all");
 
   const memberStats = useMemo(() => {
     const year = currentMonth.getFullYear();
@@ -102,12 +103,17 @@ export default function TaskStatsPage({ tasks, members, currentMonth, onSwitchPa
     });
   }, [members, tasks, availableHours, currentMonth]);
 
+  const visibleMemberStats = useMemo(() => {
+    if (groupFilter === "all") return memberStats;
+    return memberStats.filter(s => s.member.group === groupFilter);
+  }, [memberStats, groupFilter]);
+
   const totals = useMemo(() => {
-    const totalAvailableHours = availableHours * members.length;
-    const totalAssignedHours = memberStats.reduce((sum, stat) => sum + stat.assignedHours, 0);
-    const totalEconomicValue = memberStats.reduce((sum, stat) => sum + stat.economicValue, 0);
+    const totalAvailableHours = availableHours * visibleMemberStats.length;
+    const totalAssignedHours = visibleMemberStats.reduce((sum, stat) => sum + stat.assignedHours, 0);
+    const totalEconomicValue = visibleMemberStats.reduce((sum, stat) => sum + stat.economicValue, 0);
     const totalPercentage = totalAvailableHours > 0 ? (totalAssignedHours / totalAvailableHours) * 100 : 0;
-    const totalMonthlyTarget = memberStats.reduce((sum, stat) => {
+    const totalMonthlyTarget = visibleMemberStats.reduce((sum, stat) => {
       if (!stat.member.annualTarget) return sum;
       const getTotalWorkingHoursInYear = () => {
         let totalHours = 0;
@@ -129,7 +135,7 @@ export default function TaskStatsPage({ tasks, members, currentMonth, onSwitchPa
       totalPercentage,
       totalMonthlyTarget
     };
-  }, [memberStats, availableHours, members.length, currentMonth]);
+  }, [visibleMemberStats, availableHours, currentMonth]);
 
   const monthLabel = new Intl.DateTimeFormat("it-IT", {
     month: "long",
@@ -181,6 +187,14 @@ export default function TaskStatsPage({ tasks, members, currentMonth, onSwitchPa
           </div>
         </div>
         <div className="hero-buttons">
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <span style={{ fontSize: "13px", color: "#64748b" }}>Gruppo:</span>
+            <select value={groupFilter} onChange={(e) => setGroupFilter(e.target.value as "all" | "bi" | "crm")} style={{ padding: "6px 10px", fontSize: "13px", borderRadius: "4px", border: "1px solid #e2e8f0" }}>
+              <option value="all">Tutti</option>
+              <option value="bi">BI</option>
+              <option value="crm">CRM</option>
+            </select>
+          </div>
           <button className="secondary" onClick={() => onSwitchPage("manage")}>
             ← Torna al calendario
           </button>
@@ -189,7 +203,7 @@ export default function TaskStatsPage({ tasks, members, currentMonth, onSwitchPa
 
       <main className="panel">
         <div className="stats-grid">
-          {memberStats.map(({ member, availableHours, assignedHours, percentage, remainingHours, economicValue }) => (
+          {visibleMemberStats.map(({ member, availableHours, assignedHours, percentage, remainingHours, economicValue }) => (
             <div key={member.id} className="stat-card">
               <div className="stat-header">
                 <h3>{member.name}</h3>

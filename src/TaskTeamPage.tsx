@@ -2,6 +2,8 @@ import { useState } from "react";
 import { createMember, deleteTask } from "./api";
 import type { Member, Task } from "./types";
 
+type TeamGroupScope = "all" | "bi" | "crm";
+
 interface Props {
   tasks: Task[];
   members: Member[];
@@ -17,6 +19,8 @@ export default function TaskTeamPage({
 }: Props) {
   const [memberName, setMemberName] = useState("");
   const [memberRole, setMemberRole] = useState("");
+  const [memberGroup, setMemberGroup] = useState<"bi" | "crm" | "">("bi");
+  const [groupFilter, setGroupFilter] = useState<TeamGroupScope>("all");
   const [error, setError] = useState<string | null>(null);
 
   const handleCreateMember = async (event: React.FormEvent) => {
@@ -26,11 +30,13 @@ export default function TaskTeamPage({
     try {
       const created = await createMember({
         name: memberName,
-        role: memberRole || undefined
+        role: memberRole || undefined,
+        group: (memberGroup as "bi" | "crm") || undefined
       });
       onMembersUpdate([...members, created]);
       setMemberName("");
       setMemberRole("");
+      setMemberGroup("bi");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Errore creazione membro");
     }
@@ -98,6 +104,14 @@ export default function TaskTeamPage({
                 placeholder="Es. Tecnico, Designer, Manager"
               />
             </label>
+            <label>
+              Gruppo
+              <select value={memberGroup} onChange={(e) => setMemberGroup(e.target.value as "bi" | "crm" | "")}>
+                <option value="bi">BI</option>
+                <option value="crm">CRM</option>
+                <option value="">Non assegnato</option>
+              </select>
+            </label>
             <button type="submit" className="primary">
               Aggiungi membro
             </button>
@@ -106,15 +120,26 @@ export default function TaskTeamPage({
 
         <section className="panel">
           <h2>Membri del team</h2>
+          <div style={{ marginBottom: "12px" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px" }}>
+              Filtra per gruppo:
+              <select value={groupFilter} onChange={(e) => setGroupFilter(e.target.value as TeamGroupScope)} style={{ padding: "4px 8px", fontSize: "13px" }}>
+                <option value="all">Tutti</option>
+                <option value="bi">BI</option>
+                <option value="crm">CRM</option>
+              </select>
+            </label>
+          </div>
           {members.length === 0 ? (
             <div className="empty">Nessun membro nel team. Aggiungine uno a sinistra!</div>
           ) : (
             <div className="members-list">
-              {members.map((member) => (
+              {members.filter(m => groupFilter === "all" || m.group === groupFilter).map((member) => (
                 <div key={member.id} className="member-card">
                   <div className="member-info">
                     <strong>{member.name}</strong>
                     {member.role && <em>{member.role}</em>}
+                    {member.group && <span style={{ fontSize: "11px", background: member.group === "bi" ? "#dbeafe" : "#dcfce7", color: member.group === "bi" ? "#1d4ed8" : "#15803d", borderRadius: "4px", padding: "1px 6px", marginLeft: "4px" }}>{member.group.toUpperCase()}</span>}
                   </div>
                   <div className="member-stats">
                     <span>{getAssignedTaskCount(member.id)} task</span>
@@ -122,6 +147,7 @@ export default function TaskTeamPage({
                   </div>
                 </div>
               ))}
+            </div>
             </div>
           )}
 

@@ -29,5 +29,6 @@ export type Member = {
   id: string;
   name: string;
   role?: string;
+  group?: "bi" | "crm";
   annualTarget?: number; // Obiettivo annuo in €
 };

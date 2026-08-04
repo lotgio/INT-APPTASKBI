@@ -2,6 +2,9 @@ import { useMemo, useState, useEffect } from "react";
 import { getJobs, getJobsStats, syncJobsFromAzure } from "./api";
 import type { Task } from "./types";
 
+const CRM_RESOURCE_NOS = ["CGSSWHOC", "CGSSWPMIC", "CGSSWRISC", "CGSWCRM", "PROGSWCRM"];
+type JobGroupScope = "bi" | "crm" | "all";
+
 interface Job {
   jobNo: string;
   jobPlanNo: string;
@@ -34,6 +37,7 @@ export default function JobsPage({ tasks = [], onSwitchPage, onCreateTaskFromJob
   const [filterJobNo, setFilterJobNo] = useState("");
   const [sortBy, setSortBy] = useState<"jobno" | "customer">("jobno");
   const [groupBy, setGroupBy] = useState<"none" | "parent" | "customer">("none");
+  const [groupScope, setGroupScope] = useState<JobGroupScope>("bi");
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -59,12 +63,15 @@ export default function JobsPage({ tasks = [], onSwitchPage, onCreateTaskFromJob
         }
       }
       
-      // Carica con paginazione e filtro CGSSWPOW
+      // Carica con paginazione e filtro per gruppo
+      const resourceFilter =
+        groupScope === "bi" ? { resourceNo: "CGSSWPOW" } :
+        groupScope === "crm" ? { resourceNos: CRM_RESOURCE_NOS } :
+        {};
       const rawJobs = await getJobs({
         limit: ITEMS_PER_PAGE,
         offset: pageNum * ITEMS_PER_PAGE,
-        resourceNo: 'CGSSWPOW',  // Filtra solo per CGSSWPOW
-        search: filterJobNo || filterCustomer || filterDivision ? undefined : ''
+        ...resourceFilter
       });
       
       console.log(`📦 Ricevuti rawJobs: ${rawJobs.length} items`);
@@ -146,7 +153,7 @@ export default function JobsPage({ tasks = [], onSwitchPage, onCreateTaskFromJob
   useEffect(() => {
     console.log("🔄 useEffect JobsPage in esecuzione");
     loadJobs(0, false);
-  }, []);
+  }, [groupScope]);
 
   // Estrai le divisions uniche per il dropdown
   const uniqueDivisions = useMemo(() => {
@@ -272,6 +279,14 @@ export default function JobsPage({ tasks = [], onSwitchPage, onCreateTaskFromJob
         <main className="panel">
           <div className="database-controls">
             <div className="sort-controls">
+              <label>
+                Gruppo risorse
+                <select value={groupScope} onChange={(e) => setGroupScope(e.target.value as JobGroupScope)}>
+                  <option value="bi">BI (CGSSWPOW)</option>
+                  <option value="crm">CRM</option>
+                  <option value="all">Tutti (PM)</option>
+                </select>
+              </label>
               <label>
                 Filtra cliente
                 <input
