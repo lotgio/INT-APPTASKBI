@@ -185,6 +185,7 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
   const [calendarMemberFilter, setCalendarMemberFilter] = useState<string>("all");
+  const [groupFilter, setGroupFilter] = useState<"bi" | "crm" | "all">("bi");
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [draggedTaskEdge, setDraggedTaskEdge] = useState<"start" | "end" | null>(null);
   const [draggedTaskOrigin, setDraggedTaskOrigin] = useState<"sidebar" | "calendar" | null>(null);
@@ -220,13 +221,18 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
     [members]
   );
 
+  const visibleMembers = useMemo(
+    () => groupFilter === "all" ? members : members.filter((m) => m.group === groupFilter),
+    [members, groupFilter]
+  );
+
   const memberStats = useMemo(() => {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
     const monthStart = new Date(year, month, 1);
     const monthEnd = new Date(year, month + 1, 0);
 
-    return members.map((member) => {
+    return visibleMembers.map((member) => {
       const memberTasks = tasks.filter((t) => {
         if (t.assigneeId !== member.id) return false;
         if (!t.startDate || !t.endDate) return false;
@@ -272,7 +278,7 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
     const monthStart = new Date(year, month, 1);
     const monthEnd = new Date(year, month + 1, 0);
 
-    const totalAvailableHours = availableHours * members.length;
+    const totalAvailableHours = availableHours * visibleMembers.length;
     const totalAssignedHours = memberStats.reduce((sum, stat) => sum + stat.assignedHours, 0);
     const totalLeaveHours = memberStats.reduce((sum, stat) => sum + stat.leaveHours, 0);
     const totalWorkHours = memberStats.reduce((sum, stat) => sum + stat.workHours, 0);
@@ -309,7 +315,7 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
       totalPercentage,
       totalMonthlyTarget
     };
-  }, [memberStats, availableHours, members.length, currentMonth]);
+  }, [memberStats, availableHours, visibleMembers.length, currentMonth]);
 
   const calendarDays = useMemo(() => {
     const year = currentMonth.getFullYear();
@@ -362,12 +368,12 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
 
   const calendarFilterMember = calendarMemberFilter === "all"
     ? null
-    : members.find((member) => member.id === calendarMemberFilter) ?? null;
+    : visibleMembers.find((member) => member.id === calendarMemberFilter) ?? null;
 
   const calendarFilterLabel = calendarFilterMember?.name ?? "Tutte";
 
   const handleCycleCalendarFilter = () => {
-    const options = ["all", ...members.map((member) => member.id)];
+    const options = ["all", ...visibleMembers.map((member) => member.id)];
     const currentIndex = options.indexOf(calendarMemberFilter);
     const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % options.length : 0;
     setCalendarMemberFilter(options[nextIndex]);
@@ -843,7 +849,7 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
                 }
               >
                 <option value="">Seleziona risorsa</option>
-                {members.map((member) => (
+                {visibleMembers.map((member) => (
                   <option key={member.id} value={member.id}>
                     {member.name}
                   </option>
@@ -932,7 +938,7 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
 
           <h2>Membri team</h2>
           <div className="members-list">
-            {members.map((member) => {
+            {visibleMembers.map((member) => {
               const year = currentMonth.getFullYear();
               const memberStat = memberStatsMap.get(member.id);
               const totalHours = memberStat?.assignedHours ?? 0;
@@ -1083,6 +1089,15 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
             >
               Filtro risorsa: {calendarFilterLabel}
             </button>
+            <select
+              value={groupFilter}
+              onChange={(e) => { setGroupFilter(e.target.value as "bi" | "crm" | "all"); setCalendarMemberFilter("all"); }}
+              style={{ padding: "6px 10px", fontSize: "13px", borderRadius: "4px", border: "1px solid #e2e8f0" }}
+            >
+              <option value="bi">Gruppo BI</option>
+              <option value="crm">Gruppo CRM</option>
+              <option value="all">Tutti</option>
+            </select>
           </div>
 
           <div className="calendar" ref={calendarRef}>
