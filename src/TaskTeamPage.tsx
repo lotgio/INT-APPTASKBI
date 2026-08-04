@@ -148,7 +148,6 @@ export default function TaskTeamPage({
                 </div>
               ))}
             </div>
-            </div>
           )}
 
           <h2 style={{ marginTop: "32px" }}>Task non assegnati</h2>
