@@ -46,10 +46,13 @@ function ensureId(id?: string) {
   return id || (crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
 }
 
-function filterAndPaginateJobs(jobs: any[], options?: { limit?: number; offset?: number; search?: string; division?: string; resourceNo?: string; excludeTrasferta?: boolean; excludeMatching?: boolean }) {
+function filterAndPaginateJobs(jobs: any[], options?: { limit?: number; offset?: number; search?: string; division?: string; resourceNo?: string; resourceNos?: string[]; excludeTrasferta?: boolean; excludeMatching?: boolean }) {
   let filtered = jobs;
 
-  if (options?.resourceNo) {
+  if (options?.resourceNos && options.resourceNos.length > 0) {
+    const set = new Set(options.resourceNos);
+    filtered = filtered.filter((j) => set.has(j["Resource No"]));
+  } else if (options?.resourceNo) {
     filtered = filtered.filter((j) => j["Resource No"] === options.resourceNo);
   }
 
@@ -363,7 +366,7 @@ export async function deleteTask(id: string): Promise<{ ok: true } | { ok: false
   });
 }
 
-export async function getJobs(options?: { limit?: number; offset?: number; search?: string; division?: string; resourceNo?: string; excludeTrasferta?: boolean; excludeMatching?: boolean }): Promise<any[]> {
+export async function getJobs(options?: { limit?: number; offset?: number; search?: string; division?: string; resourceNo?: string; resourceNos?: string[]; excludeTrasferta?: boolean; excludeMatching?: boolean }): Promise<any[]> {
   console.log("🔍 getJobs() chiamato con opzioni:", options);
   
   // In localStorage mode usa jobs.json pubblicato (sincronizzato da Azure Blob)
@@ -380,6 +383,7 @@ export async function getJobs(options?: { limit?: number; offset?: number; searc
       ...(options?.search && { search: options.search }),
       ...(options?.division && { division: options.division }),
       ...(options?.resourceNo && { resourceNo: options.resourceNo }),
+      ...(options?.resourceNos && options.resourceNos.length > 0 && { resourceNos: options.resourceNos.join(",") }),
       excludeTrasferta: String(options?.excludeTrasferta !== false),
       excludeMatching: String(options?.excludeMatching !== false)
     });

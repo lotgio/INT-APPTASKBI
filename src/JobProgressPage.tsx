@@ -59,7 +59,8 @@ interface PlanningJob {
 
 const HOURS_PER_DAY = 8;
 const PAGE_SIZE = 1000;
-type DivisionScope = "owned" | "all";
+const CRM_RESOURCE_NOS = ["CGSSWHOC", "CGSSWPMIC", "CGSSWRISC", "CGSWCRM", "PROGSWCRM"];
+type GroupScope = "bi" | "crm" | "all";
 
 const STORAGE_KEYS = {
   syncToken: "apptaskbi_sync_github_token"
@@ -182,7 +183,7 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<string | null>(null);
   const [filterText, setFilterText] = useState("");
-  const [divisionScope, setDivisionScope] = useState<DivisionScope>("all");
+  const [divisionScope, setDivisionScope] = useState<GroupScope>("bi");
   const [hideFullyInvoiced, setHideFullyInvoiced] = useState(true);
   const [expandedJobs, setExpandedJobs] = useState<Record<string, boolean>>({});
   const [isExporting, setIsExporting] = useState(false);
@@ -231,11 +232,14 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
       let offset = 0;
 
       while (true) {
-        const loadAllDivisions = divisionScope === "all";
+        const resourceFilter =
+          divisionScope === "bi" ? { resourceNo: "CGSSWPOW" } :
+          divisionScope === "crm" ? { resourceNos: CRM_RESOURCE_NOS } :
+          {};
         const chunk = await getJobs({
           limit: PAGE_SIZE,
           offset,
-          ...(loadAllDivisions ? {} : { resourceNo: "CGSSWPOW" })
+          ...resourceFilter
         });
 
         rows.push(...chunk);
@@ -279,7 +283,7 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
     } finally {
       setLoading(false);
     }
-  }, [plannedHoursByJob, divisionScope]);
+  }, [plannedHoursByJob, divisionScope]); // divisionScope è GroupScope
 
   useEffect(() => {
     loadData();
@@ -532,7 +536,7 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
         ["Avanzamento Commesse"],
         [`Generato il: ${nowIso}`],
         [`Filtro testo: ${filterText || "(nessuno)"}`],
-        [`Ambito divisioni: ${divisionScope === "all" ? "Tutte le divisioni (PM)" : "Divisione standard"}`],
+        [`Gruppo: ${divisionScope === "bi" ? "BI (CGSSWPOW)" : divisionScope === "crm" ? "CRM" : "Tutti (PM)"}`],
         [`Ultimo aggiornamento sorgente: ${formatLastUpdate(lastUpdate)}`],
         [
           `Totale commesse: ${aggregates.length}`,
@@ -747,7 +751,7 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
             Ultimo aggiornamento dati: <strong>{formatLastUpdate(lastUpdate)}</strong>
           </p>
           <p className="subtitle" style={{ marginTop: "4px" }}>
-            Ambito righe: <strong>{divisionScope === "all" ? "Tutte le divisioni (modalita PM)" : "Divisione standard"}</strong>
+            Gruppo: <strong>{divisionScope === "bi" ? "BI" : divisionScope === "crm" ? "CRM" : "Tutti (PM)"}</strong>
           </p>
         </div>
         <div className="stats">
@@ -816,13 +820,14 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
         <div className="database-controls">
           <div className="sort-controls">
             <label>
-              Ambito divisioni
+              Gruppo risorse
               <select
                 value={divisionScope}
-                onChange={(e) => setDivisionScope(e.target.value as DivisionScope)}
+                onChange={(e) => setDivisionScope(e.target.value as GroupScope)}
               >
-                <option value="owned">Solo divisione standard</option>
-                <option value="all">Tutte le divisioni (PM)</option>
+                <option value="bi">BI (CGSSWPOW)</option>
+                <option value="crm">CRM</option>
+                <option value="all">Tutti (modalità PM)</option>
               </select>
             </label>
             <label>
