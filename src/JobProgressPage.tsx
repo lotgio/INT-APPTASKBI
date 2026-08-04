@@ -183,6 +183,7 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
   const [lastUpdate, setLastUpdate] = useState<string | null>(null);
   const [filterText, setFilterText] = useState("");
   const [divisionScope, setDivisionScope] = useState<DivisionScope>("all");
+  const [hideFullyInvoiced, setHideFullyInvoiced] = useState(true);
   const [expandedJobs, setExpandedJobs] = useState<Record<string, boolean>>({});
   const [isExporting, setIsExporting] = useState(false);
   const [githubToken, setGithubToken] = useState("");
@@ -448,8 +449,10 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
       existing.lineCount += 1;
     });
 
-    return Array.from(map.values()).sort((a, b) => b.jobNo.localeCompare(a.jobNo));
-  }, [filteredLines]);
+    const all = Array.from(map.values()).sort((a, b) => b.jobNo.localeCompare(a.jobNo));
+    if (!hideFullyInvoiced) return all;
+    return all.filter((job) => job.soldHours <= 0 || job.invoicedActivities < job.soldHours);
+  }, [filteredLines, hideFullyInvoiced]);
 
   const linesByJob = useMemo(() => {
     const map = new Map<string, JobLine[]>();
@@ -469,11 +472,11 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
   }, [filteredLines]);
 
   const totals = useMemo(() => {
-    const soldHours = filteredLines.reduce((sum, line) => sum + line.soldHours, 0);
-    const loggedHours = filteredLines.reduce((sum, line) => sum + line.loggedHours, 0);
-    const loggedActivities = filteredLines.reduce((sum, line) => sum + line.loggedActivities, 0);
-    const enableInvoiceActivities = filteredLines.reduce((sum, line) => sum + line.enableInvoiceActivities, 0);
-    const invoicedActivities = filteredLines.reduce((sum, line) => sum + line.invoicedActivities, 0);
+    const soldHours = aggregates.reduce((sum, job) => sum + job.soldHours, 0);
+    const loggedHours = aggregates.reduce((sum, job) => sum + job.loggedHours, 0);
+    const loggedActivities = aggregates.reduce((sum, job) => sum + job.loggedActivities, 0);
+    const enableInvoiceActivities = aggregates.reduce((sum, job) => sum + job.enableInvoiceActivities, 0);
+    const invoicedActivities = aggregates.reduce((sum, job) => sum + job.invoicedActivities, 0);
     const remainingHours = soldHours - loggedHours;
 
     return {
@@ -485,7 +488,7 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
       remainingHours,
       remainingDays: remainingHours / HOURS_PER_DAY
     };
-  }, [filteredLines]);
+  }, [aggregates]);
 
   useEffect(() => {
     setExpandedJobs((prev) => {
@@ -565,10 +568,11 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
         })
       ];
 
+      const visibleJobNos = new Set(aggregates.map((job) => job.jobNo));
       const detailData: Array<Array<string | number>> = [
         ["Dettaglio righe commessa"],
         ["Commessa", "Riga", "Cliente", "Division", "Descrizione principale", "Descrizione riga", "Venduto", "Loggato", "Base confronto", "Enable invoice", "Fatturate", "Avanzamento %", "Ore rimanenti", "Giorni rimanenti", "Note"],
-        ...filteredLines.map((line) => {
+        ...filteredLines.filter((line) => visibleJobNos.has(line.jobNo)).map((line) => {
           const remainingHours = line.soldHours - line.loggedHours;
           const remainingDays = remainingHours / HOURS_PER_DAY;
           const progress = getProgressPercent(line.loggedHours, line.soldHours);
@@ -829,6 +833,14 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
                 value={filterText}
                 onChange={(e) => setFilterText(e.target.value)}
               />
+            </label>
+            <label style={{ flexDirection: "row", alignItems: "center", gap: "8px", cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={hideFullyInvoiced}
+                onChange={(e) => setHideFullyInvoiced(e.target.checked)}
+              />
+              Nascondi commesse fatturate al 100%
             </label>
             <label>
               Token sync (GitHub PAT)
