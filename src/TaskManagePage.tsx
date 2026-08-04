@@ -226,6 +226,11 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
     [members, groupFilter]
   );
 
+  const visibleMemberIds = useMemo(
+    () => new Set(visibleMembers.map((m) => m.id)),
+    [visibleMembers]
+  );
+
   const memberStats = useMemo(() => {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
@@ -1112,7 +1117,9 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
               {calendarDays.map((day) => {
                 const dateKey = formatDate(day.date);
                 const dayTasks = (tasksByDate[dateKey] ?? []).filter((task) =>
-                  calendarMemberFilter === "all" ? true : task.assigneeId === calendarMemberFilter
+                  calendarMemberFilter === "all"
+                    ? visibleMemberIds.has(task.assigneeId ?? "")
+                    : task.assigneeId === calendarMemberFilter
                 );
                 const leaveDayTasks = dayTasks.filter((task) => isLeaveTask(task));
                 const scheduledDayTasks = dayTasks.filter((task) => !isLeaveTask(task));
