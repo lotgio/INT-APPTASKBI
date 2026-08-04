@@ -58,6 +58,13 @@ jobs:
           JOBS_MIN_YEAR=${{ secrets.JOBS_MIN_YEAR }}
           EOF
 
+      - name: Check Azure secrets presence
+        run: |
+          echo "AZURE_STORAGE_ACCOUNT set: ${{ secrets.AZURE_STORAGE_ACCOUNT != '' }}"
+          echo "AZURE_STORAGE_KEY set: ${{ secrets.AZURE_STORAGE_KEY != '' }}"
+          echo "AZURE_STORAGE_CONTAINER set: ${{ secrets.AZURE_STORAGE_CONTAINER != '' }}"
+          echo "AZURE_STORAGE_BLOB set: ${{ secrets.AZURE_STORAGE_BLOB != '' }}"
+
       - name: Sync jobs from Azure Blob
         continue-on-error: true
         run: |
