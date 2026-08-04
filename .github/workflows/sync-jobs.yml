@@ -35,7 +35,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install pandas pyarrow azure-storage-blob python-dotenv
       
       - name: Install Node dependencies
         run: npm install
