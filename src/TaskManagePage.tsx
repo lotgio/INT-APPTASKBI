@@ -270,7 +270,7 @@ export default function TaskManagePage({ tasks, members, onTasksUpdate, onMember
         economicValue
       };
     });
-  }, [tasks, members, availableHours, currentMonth]);
+  }, [tasks, visibleMembers, availableHours, currentMonth]);
 
   const memberStatsMap = useMemo(
     () => new Map(memberStats.map((stat) => [stat.member.id, stat])),
