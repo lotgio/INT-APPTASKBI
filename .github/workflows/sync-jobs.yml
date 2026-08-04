@@ -59,9 +59,9 @@ jobs:
           EOF
 
       - name: Sync jobs from Azure Blob
+        continue-on-error: true
         run: |
-          python sync-jobs.py
-          echo "SYNC_SOURCE=azure" >> $GITHUB_ENV
+          python sync-jobs.py && echo "SYNC_SOURCE=azure" >> $GITHUB_ENV || echo "SYNC_SOURCE=none" >> $GITHUB_ENV
 
       - name: Print sync source used
         run: |
