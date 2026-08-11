@@ -70,6 +70,15 @@ jobs:
         run: |
           python sync-jobs.py && echo "SYNC_SOURCE=azure" >> $GITHUB_ENV || echo "SYNC_SOURCE=none" >> $GITHUB_ENV
 
+      - name: Check resources.json
+        run: |
+          if [ -f public/resources.json ]; then
+            echo "✅ resources.json trovato: $(wc -c < public/resources.json) bytes, $(python3 -c "import json; d=json.load(open('public/resources.json')); print(len(d), 'risorse')")"
+            echo "Primo record: $(python3 -c "import json; d=json.load(open('public/resources.json')); print(d[0] if d else 'vuoto')")"
+          else
+            echo "❌ resources.json NON trovato in public/ — non verrà incluso nel deploy"
+          fi
+
       - name: Print sync source used
         run: |
           echo "Sync source used: $SYNC_SOURCE"

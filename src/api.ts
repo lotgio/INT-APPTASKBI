@@ -559,11 +559,17 @@ export async function getJobsDataLastUpdate(): Promise<string | null> {
 export async function getResources(): Promise<Record<string, string>> {
   try {
     const base = BASE_URL.endsWith("/") ? BASE_URL : BASE_URL + "/";
-    const response = await fetch(`${base}resources.json`, { cache: "no-store" });
-    if (!response.ok) return {};
+    const url = `${base}resources.json`;
+    const response = await fetch(url, { cache: "no-store" });
+    if (!response.ok) {
+      console.warn(`[getResources] ${url} → HTTP ${response.status}`);
+      return {};
+    }
     const data: Array<{ No: string; Name: string }> = await response.json();
+    console.info(`[getResources] caricate ${data.length} risorse da ${url}`);
     return Object.fromEntries(data.map((r) => [r.No, r.Name]));
-  } catch {
+  } catch (err) {
+    console.warn("[getResources] errore:", err);
     return {};
   }
 }
