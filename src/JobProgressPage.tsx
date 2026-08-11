@@ -22,6 +22,7 @@ interface JobLine {
   enableInvoiceActivities: number;
   invoicedActivities: number;
   plannedHours: number;
+  resourceNo: string;
 }
 
 interface JobAggregate {
@@ -191,6 +192,8 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
   const [lineNotes, setLineNotes] = useState<Record<string, string>>({});
   const noteSaveTimersRef = useRef<Record<string, number>>({});
   const [isNotesLoading, setIsNotesLoading] = useState(true);
+  const [selectedResourceNos, setSelectedResourceNos] = useState<string[]>([]);
+  const [resourceFilterSearch, setResourceFilterSearch] = useState("");
 
   useEffect(() => {
     setGithubToken(readStoredToken());
@@ -270,7 +273,8 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
           loggedActivities: pickMetric(row["Nr Attivita Loggate"], loggedFallback),
           enableInvoiceActivities: pickMetric(row["Nr Enable Invoice"], enableFallback),
           invoicedActivities: pickMetric(row["Nr Fatturate"], invoicedFallback),
-          plannedHours: planned.total
+          plannedHours: planned.total,
+          resourceNo: String(row["Resource No"] || "")
         };
       });
 
@@ -403,9 +407,21 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
     }
   };
 
+  const availableResourceNos = useMemo(() => {
+    if (divisionScope !== "all") return [];
+    const set = new Set<string>();
+    jobLines.forEach((line) => { if (line.resourceNo) set.add(line.resourceNo); });
+    return Array.from(set).sort();
+  }, [jobLines, divisionScope]);
+
   const filteredLines = useMemo(() => {
     const term = filterText.trim().toLowerCase();
-    const base = jobLines.filter((line) => !line.jobNo.toUpperCase().startsWith("COIG"));
+    let base = jobLines.filter((line) => !line.jobNo.toUpperCase().startsWith("COIG"));
+
+    if (divisionScope === "all" && selectedResourceNos.length > 0) {
+      const selected = new Set(selectedResourceNos);
+      base = base.filter((line) => selected.has(line.resourceNo));
+    }
 
     if (!term) return base;
 
@@ -417,7 +433,7 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
       line.mainDescription.toLowerCase().includes(term) ||
       line.planDescription.toLowerCase().includes(term)
     );
-  }, [jobLines, filterText]);
+  }, [jobLines, filterText, divisionScope, selectedResourceNos]);
 
   const aggregates = useMemo(() => {
     const map = new Map<string, JobAggregate>();
@@ -823,7 +839,7 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
               Gruppo risorse
               <select
                 value={divisionScope}
-                onChange={(e) => setDivisionScope(e.target.value as GroupScope)}
+                onChange={(e) => { setDivisionScope(e.target.value as GroupScope); setSelectedResourceNos([]); setResourceFilterSearch(""); }}
               >
                 <option value="bi">BI (CGSSWPOW)</option>
                 <option value="crm">CRM</option>
@@ -847,6 +863,79 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
               />
               Nascondi commesse fatturate al 100%
             </label>
+            {divisionScope === "all" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                <label style={{ marginBottom: 0 }}>Filtra per risorsa generica</label>
+                <input
+                  type="text"
+                  placeholder="Cerca codice risorsa..."
+                  value={resourceFilterSearch}
+                  onChange={(e) => setResourceFilterSearch(e.target.value)}
+                  style={{ marginBottom: "4px" }}
+                />
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", maxHeight: "120px", overflowY: "auto", border: "1px solid #e2e8f0", borderRadius: "6px", padding: "6px", background: "#f8fafc" }}>
+                  {availableResourceNos
+                    .filter((r) => r.toLowerCase().includes(resourceFilterSearch.toLowerCase()))
+                    .map((r) => {
+                      const isSelected = selectedResourceNos.includes(r);
+                      return (
+                        <button
+                          key={r}
+                          type="button"
+                          onClick={() => setSelectedResourceNos((prev) =>
+                            isSelected ? prev.filter((x) => x !== r) : [...prev, r]
+                          )}
+                          style={{
+                            padding: "2px 10px",
+                            borderRadius: "12px",
+                            border: "1px solid",
+                            borderColor: isSelected ? "#2563eb" : "#cbd5e1",
+                            background: isSelected ? "#2563eb" : "#fff",
+                            color: isSelected ? "#fff" : "#334155",
+                            fontSize: "12px",
+                            cursor: "pointer",
+                            fontWeight: isSelected ? 600 : 400
+                          }}
+                        >
+                          {r}
+                        </button>
+                      );
+                    })}
+                  {availableResourceNos.filter((r) => r.toLowerCase().includes(resourceFilterSearch.toLowerCase())).length === 0 && (
+                    <span style={{ fontSize: "12px", color: "#94a3b8" }}>Nessuna risorsa trovata</span>
+                  )}
+                </div>
+                {selectedResourceNos.length > 0 && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", alignItems: "center" }}>
+                    <span style={{ fontSize: "12px", color: "#64748b" }}>Selezionate:</span>
+                    {selectedResourceNos.map((r) => (
+                      <span
+                        key={r}
+                        style={{ display: "inline-flex", alignItems: "center", gap: "4px", padding: "2px 8px", borderRadius: "10px", background: "#dbeafe", color: "#1e40af", fontSize: "12px", fontWeight: 600 }}
+                      >
+                        {r}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedResourceNos((prev) => prev.filter((x) => x !== r))}
+                          style={{ background: "none", border: "none", cursor: "pointer", color: "#1e40af", padding: 0, lineHeight: 1, fontSize: "14px" }}
+                          title={`Rimuovi ${r}`}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                    <button
+                      type="button"
+                      className="secondary"
+                      style={{ fontSize: "11px", padding: "2px 8px" }}
+                      onClick={() => setSelectedResourceNos([])}
+                    >
+                      Deseleziona tutto
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
             <label>
               Token sync (GitHub PAT)
               <input
