@@ -558,8 +558,8 @@ export async function getJobsDataLastUpdate(): Promise<string | null> {
 
 export async function getResources(): Promise<Record<string, string>> {
   try {
-    const base = BASE_URL.endsWith("/") ? BASE_URL : BASE_URL + "/";
-    const url = `${base}resources.json`;
+    // Risolve resources.json relativo alla pagina corrente (funziona su qualsiasi subpath)
+    const url = new URL("resources.json", window.location.href).href;
     const response = await fetch(url, { cache: "no-store" });
     if (!response.ok) {
       console.warn(`[getResources] ${url} → HTTP ${response.status}`);
