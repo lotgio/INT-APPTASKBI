@@ -98,7 +98,20 @@ def sync_jobs_from_azure():
         
         print(f"✅ Sincronizzazione completata: {len(records)} commesse caricate")
         print(f"✅ File aggiornato: {jobs_json_path}")
-        
+
+        # Scarica resources.json da Azure se disponibile
+        try:
+            resources_blob_client = blob_service_client.get_blob_client(container=container_name, blob="resources.json")
+            resources_stream = BytesIO()
+            resources_blob_client.download_blob().readinto(resources_stream)
+            resources_stream.seek(0)
+            resources_json_path = public_dir / "resources.json"
+            with open(resources_json_path, "wb") as f:
+                f.write(resources_stream.read())
+            print(f"✅ resources.json aggiornato: {resources_json_path}")
+        except Exception as res_err:
+            print(f"⚠️  resources.json non trovato su Azure (ignorato): {res_err}", file=sys.stderr)
+
         return True
         
     except Exception as e:
