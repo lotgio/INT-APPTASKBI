@@ -85,6 +85,7 @@ jobs:
       - name: Copy jobs.json to dist
         run: |
           cp public/jobs.json dist/jobs.json
+          [ -f public/resources.json ] && cp public/resources.json dist/resources.json || echo "resources.json non presente, skip"
       
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
