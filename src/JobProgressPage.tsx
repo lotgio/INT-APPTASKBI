@@ -63,6 +63,57 @@ const PAGE_SIZE = 1000;
 const CRM_RESOURCE_NOS = ["CGSSWHOC", "CGSSWPMIC", "CGSSWRISC", "CGSWCRM", "PROGSWCRM"];
 type GroupScope = "bi" | "crm" | "all";
 
+// Descrizioni note per le risorse generiche BC
+const RESOURCE_DESCRIPTIONS: Record<string, string> = {
+  CGSSWPOW:       "BI Power Platform",
+  CGSSWPMIC:      "CRM Power MIC",
+  CGSSWHOC:       "CRM HOC",
+  CGSSWRISC:      "CRM RISC",
+  CGSWCRM:        "CRM",
+  PROGSWCRM:      "Prog SW CRM",
+  CGSSWGDS:       "GDS",
+  CGSSWGDMES:     "GDS MES",
+  CGSSWGDWR:      "GDS WR",
+  CGSSWGUEZZT:    "GDS Guezzt",
+  CGSSWR$S:       "R&S",
+  PROGSWGDOHDR:   "Prog GD OHDR",
+  PROGSWM:        "Prog SW M",
+  PROGSWNAV:      "Prog SW Nav",
+  PROGSWONE:      "Prog SW One",
+  PROGSWR$SGEM:   "Prog R&S GEM",
+  CGSSWONE:       "SW ONE",
+  CGSWN:          "SW N",
+  CGSWP:          "SW P",
+  CGSWS:          "SW S",
+  CGSPMINTS:      "PM INT S",
+  CGJSWPMIN:      "PM IN",
+  CGJSWRISS:      "RISS",
+  CGSSWR$SGEM:    "R&S GEM",
+  CGSSWRTCONNECT: "RT Connect",
+  CGSSWSIAPP:     "SI APP",
+  CGSWESTHUBOS:   "EST Hub OS",
+  CGSWESTNAV:     "EST Nav",
+  CGSWESTSCAPTA:  "EST Scapta",
+  CGSWESTSIAPP:   "EST SI App",
+  PROGSWGDOINETPOS: "Prog GD iNetPOS",
+  PROGSWGDOLASER: "Prog GD Laser",
+  PROGSWGDONTS:   "Prog GD NTS",
+  PROGSWGUEZZT:   "Prog Guezzt",
+  PROGSWPMIINETPOS: "Prog PMI iNetPOS",
+  PROGSWPMINTS:   "Prog PM INT S",
+  CGSSWHOM:       "HOM",
+  CGSSWHON:       "HON",
+  CGSSWHOP:       "HOP",
+  CGSSWHOPAIR:    "HOP AIR",
+  CGSSWHORA:      "HOR A",
+  CGSSWHOS:       "HOS",
+  CGSSWPMIM:      "PMI M",
+  CGSSWPMIN:      "PMI N",
+  CGSSWRISM:      "RISM",
+  CGSSWRISN:      "RISN",
+  CGSSWRISS:      "RISS",
+};
+
 const STORAGE_KEYS = {
   syncToken: "apptaskbi_sync_github_token"
 } as const;
@@ -194,6 +245,8 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
   const [isNotesLoading, setIsNotesLoading] = useState(true);
   const [selectedResourceNos, setSelectedResourceNos] = useState<string[]>([]);
   const [resourceFilterSearch, setResourceFilterSearch] = useState("");
+  const [resourceDropdownOpen, setResourceDropdownOpen] = useState(false);
+  const resourceDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setGithubToken(readStoredToken());
@@ -296,6 +349,17 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
   useEffect(() => {
     loadNotes();
   }, [loadNotes]);
+
+  useEffect(() => {
+    if (!resourceDropdownOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (resourceDropdownRef.current && !resourceDropdownRef.current.contains(e.target as Node)) {
+        setResourceDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [resourceDropdownOpen]);
 
   useEffect(() => {
     return () => {
@@ -864,74 +928,129 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
               Nascondi commesse fatturate al 100%
             </label>
             {divisionScope === "all" && (
-              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+              <div ref={resourceDropdownRef} style={{ display: "flex", flexDirection: "column", gap: "4px", position: "relative" }}>
                 <label style={{ marginBottom: 0 }}>Filtra per risorsa generica</label>
-                <input
-                  type="text"
-                  placeholder="Cerca codice risorsa..."
-                  value={resourceFilterSearch}
-                  onChange={(e) => setResourceFilterSearch(e.target.value)}
-                  style={{ marginBottom: "4px" }}
-                />
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", maxHeight: "120px", overflowY: "auto", border: "1px solid #e2e8f0", borderRadius: "6px", padding: "6px", background: "#f8fafc" }}>
-                  {availableResourceNos
-                    .filter((r) => r.toLowerCase().includes(resourceFilterSearch.toLowerCase()))
-                    .map((r) => {
-                      const isSelected = selectedResourceNos.includes(r);
-                      return (
-                        <button
-                          key={r}
-                          type="button"
-                          onClick={() => setSelectedResourceNos((prev) =>
-                            isSelected ? prev.filter((x) => x !== r) : [...prev, r]
-                          )}
-                          style={{
-                            padding: "2px 10px",
-                            borderRadius: "12px",
-                            border: "1px solid",
-                            borderColor: isSelected ? "#2563eb" : "#cbd5e1",
-                            background: isSelected ? "#2563eb" : "#fff",
-                            color: isSelected ? "#fff" : "#334155",
-                            fontSize: "12px",
-                            cursor: "pointer",
-                            fontWeight: isSelected ? 600 : 400
-                          }}
-                        >
-                          {r}
-                        </button>
-                      );
-                    })}
-                  {availableResourceNos.filter((r) => r.toLowerCase().includes(resourceFilterSearch.toLowerCase())).length === 0 && (
-                    <span style={{ fontSize: "12px", color: "#94a3b8" }}>Nessuna risorsa trovata</span>
-                  )}
-                </div>
-                {selectedResourceNos.length > 0 && (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", alignItems: "center" }}>
-                    <span style={{ fontSize: "12px", color: "#64748b" }}>Selezionate:</span>
-                    {selectedResourceNos.map((r) => (
-                      <span
-                        key={r}
-                        style={{ display: "inline-flex", alignItems: "center", gap: "4px", padding: "2px 8px", borderRadius: "10px", background: "#dbeafe", color: "#1e40af", fontSize: "12px", fontWeight: 600 }}
+                {/* Trigger button */}
+                <button
+                  type="button"
+                  onClick={() => setResourceDropdownOpen((o) => !o)}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: "7px 12px",
+                    border: "1px solid #cbd5e1",
+                    borderRadius: "6px",
+                    background: "#fff",
+                    cursor: "pointer",
+                    fontSize: "13px",
+                    color: selectedResourceNos.length === 0 ? "#94a3b8" : "#0f172a",
+                    minWidth: "260px",
+                    textAlign: "left"
+                  }}
+                >
+                  <span>
+                    {selectedResourceNos.length === 0
+                      ? `Tutte le risorse (${availableResourceNos.length})`
+                      : selectedResourceNos.length === 1
+                        ? `${selectedResourceNos[0]}${RESOURCE_DESCRIPTIONS[selectedResourceNos[0]] ? " — " + RESOURCE_DESCRIPTIONS[selectedResourceNos[0]] : ""}`
+                        : `${selectedResourceNos.length} risorse selezionate`}
+                  </span>
+                  <span style={{ marginLeft: "8px", opacity: 0.5 }}>{resourceDropdownOpen ? "▲" : "▼"}</span>
+                </button>
+                {/* Dropdown panel */}
+                {resourceDropdownOpen && (
+                  <div style={{
+                    position: "absolute",
+                    top: "100%",
+                    left: 0,
+                    zIndex: 200,
+                    minWidth: "320px",
+                    background: "#fff",
+                    border: "1px solid #cbd5e1",
+                    borderRadius: "8px",
+                    boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+                    display: "flex",
+                    flexDirection: "column"
+                  }}>
+                    {/* Search */}
+                    <div style={{ padding: "8px" }}>
+                      <input
+                        type="text"
+                        placeholder="Cerca codice o descrizione..."
+                        value={resourceFilterSearch}
+                        onChange={(e) => setResourceFilterSearch(e.target.value)}
+                        autoFocus
+                        style={{ width: "100%", boxSizing: "border-box", padding: "6px 10px", border: "1px solid #e2e8f0", borderRadius: "6px", fontSize: "13px" }}
+                      />
+                    </div>
+                    {/* Select all / deselect all */}
+                    <div style={{ padding: "4px 8px 6px", borderBottom: "1px solid #f1f5f9", display: "flex", gap: "8px" }}>
+                      <button
+                        type="button"
+                        style={{ background: "none", border: "none", cursor: "pointer", color: "#2563eb", fontSize: "12px", padding: 0 }}
+                        onClick={() => {
+                          const visible = availableResourceNos.filter((r) => {
+                            const term = resourceFilterSearch.toLowerCase();
+                            return r.toLowerCase().includes(term) || (RESOURCE_DESCRIPTIONS[r] || "").toLowerCase().includes(term);
+                          });
+                          setSelectedResourceNos((prev) => Array.from(new Set([...prev, ...visible])));
+                        }}
                       >
-                        {r}
-                        <button
-                          type="button"
-                          onClick={() => setSelectedResourceNos((prev) => prev.filter((x) => x !== r))}
-                          style={{ background: "none", border: "none", cursor: "pointer", color: "#1e40af", padding: 0, lineHeight: 1, fontSize: "14px" }}
-                          title={`Rimuovi ${r}`}
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                    <button
-                      type="button"
-                      className="secondary"
-                      style={{ fontSize: "11px", padding: "2px 8px" }}
-                      onClick={() => setSelectedResourceNos([])}
-                    >
-                      Deseleziona tutto
-                    </button>
+                        Seleziona tutto
+                      </button>
+                      <span style={{ color: "#cbd5e1" }}>|</span>
+                      <button
+                        type="button"
+                        style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", fontSize: "12px", padding: 0 }}
+                        onClick={() => setSelectedResourceNos([])}
+                      >
+                        Deseleziona tutto
+                      </button>
+                    </div>
+                    {/* Resource list */}
+                    <div style={{ maxHeight: "240px", overflowY: "auto", padding: "4px 0" }}>
+                      {availableResourceNos
+                        .filter((r) => {
+                          const term = resourceFilterSearch.toLowerCase();
+                          return r.toLowerCase().includes(term) || (RESOURCE_DESCRIPTIONS[r] || "").toLowerCase().includes(term);
+                        })
+                        .map((r) => {
+                          const desc = RESOURCE_DESCRIPTIONS[r] || "";
+                          const isSelected = selectedResourceNos.includes(r);
+                          return (
+                            <label
+                              key={r}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "8px",
+                                padding: "6px 14px",
+                                cursor: "pointer",
+                                background: isSelected ? "#eff6ff" : "transparent",
+                                fontSize: "13px"
+                              }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => setSelectedResourceNos((prev) =>
+                                  isSelected ? prev.filter((x) => x !== r) : [...prev, r]
+                                )}
+                                style={{ accentColor: "#2563eb", flexShrink: 0 }}
+                              />
+                              <span style={{ fontWeight: 600, color: "#0f172a" }}>{r}</span>
+                              {desc && <span style={{ color: "#64748b", fontSize: "12px" }}>{desc}</span>}
+                            </label>
+                          );
+                        })}
+                      {availableResourceNos.filter((r) => {
+                        const term = resourceFilterSearch.toLowerCase();
+                        return r.toLowerCase().includes(term) || (RESOURCE_DESCRIPTIONS[r] || "").toLowerCase().includes(term);
+                      }).length === 0 && (
+                        <div style={{ padding: "12px 14px", color: "#94a3b8", fontSize: "13px" }}>Nessuna risorsa trovata</div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
