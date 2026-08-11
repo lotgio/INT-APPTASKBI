@@ -137,6 +137,20 @@ ORDER BY J.job_name, JD.job_taskno, JD.job_LineNo
 """
 
 
+def _nav_resources_query() -> str:
+    nav_server = os.getenv("NAV_SQL_SERVER", "SERINF-SQL01").strip()
+    nav_db = os.getenv("NAV_SQL_DATABASE", "SERINFSQL900IT05").strip()
+    nav_company = os.getenv("NAV_COMPANY_NAME", "Serenissima Informatica S_p_A_").strip()
+    resource_table = f"[{nav_server}].{nav_db}.dbo.[{nav_company}$Resource]"
+    return f"""
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+SELECT r.No_ AS [No], r.Name
+FROM {resource_table} AS r WITH (NOLOCK)
+WHERE r.Type = 1
+ORDER BY r.No_
+"""
+
+
 def _nav_query(job_names: list[str]) -> str:
     nav_server = os.getenv("NAV_SQL_SERVER", "SERINF-SQL01").strip()
     nav_db = os.getenv("NAV_SQL_DATABASE", "SERINFSQL900IT05").strip()
@@ -244,6 +258,20 @@ def sync_jobs_direct() -> int:
         json.dump(payload, f, ensure_ascii=False, default=str, separators=(",", ":"))
 
     print(f"[SYNC] Completato: {len(payload)} record scritti in {output_file}")
+
+    # Scrivi tabella risorse (No_ → Name) da NAV
+    try:
+        resources_sql = _nav_resources_query()
+        with engine.connect() as conn:
+            df_resources = pd.read_sql(resources_sql, conn)
+        resources_payload = df_resources.to_dict(orient="records")
+        resources_file = public_dir / "resources.json"
+        with open(resources_file, "w", encoding="utf-8") as f:
+            json.dump(resources_payload, f, ensure_ascii=False, default=str, separators=(",", ":"))
+        print(f"[SYNC] Risorse: {len(resources_payload)} record scritti in {resources_file}")
+    except Exception as exc:
+        print(f"[WARN] Impossibile scrivere resources.json: {exc}", file=sys.stderr)
+
     return len(payload)
 
 

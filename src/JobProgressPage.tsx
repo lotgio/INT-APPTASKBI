@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+﻿import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx-js-style";
 import { dispatchSyncJobsWorkflowWithToken, getJobProgressLineNotes, getJobs, getJobsDataLastUpdate, saveJobProgressLineNote, syncJobsFromPrimarySource } from "./api";
 import type { Task } from "./types";
@@ -62,57 +62,6 @@ const HOURS_PER_DAY = 8;
 const PAGE_SIZE = 1000;
 const CRM_RESOURCE_NOS = ["CGSSWHOC", "CGSSWPMIC", "CGSSWRISC", "CGSWCRM", "PROGSWCRM"];
 type GroupScope = "bi" | "crm" | "all";
-
-// Descrizioni note per le risorse generiche BC
-const RESOURCE_DESCRIPTIONS: Record<string, string> = {
-  CGSSWPOW:       "BI Power Platform",
-  CGSSWPMIC:      "CRM Power MIC",
-  CGSSWHOC:       "CRM HOC",
-  CGSSWRISC:      "CRM RISC",
-  CGSWCRM:        "CRM",
-  PROGSWCRM:      "Prog SW CRM",
-  CGSSWGDS:       "GDS",
-  CGSSWGDMES:     "GDS MES",
-  CGSSWGDWR:      "GDS WR",
-  CGSSWGUEZZT:    "GDS Guezzt",
-  CGSSWR$S:       "R&S",
-  PROGSWGDOHDR:   "Prog GD OHDR",
-  PROGSWM:        "Prog SW M",
-  PROGSWNAV:      "Prog SW Nav",
-  PROGSWONE:      "Prog SW One",
-  PROGSWR$SGEM:   "Prog R&S GEM",
-  CGSSWONE:       "SW ONE",
-  CGSWN:          "SW N",
-  CGSWP:          "SW P",
-  CGSWS:          "SW S",
-  CGSPMINTS:      "PM INT S",
-  CGJSWPMIN:      "PM IN",
-  CGJSWRISS:      "RISS",
-  CGSSWR$SGEM:    "R&S GEM",
-  CGSSWRTCONNECT: "RT Connect",
-  CGSSWSIAPP:     "SI APP",
-  CGSWESTHUBOS:   "EST Hub OS",
-  CGSWESTNAV:     "EST Nav",
-  CGSWESTSCAPTA:  "EST Scapta",
-  CGSWESTSIAPP:   "EST SI App",
-  PROGSWGDOINETPOS: "Prog GD iNetPOS",
-  PROGSWGDOLASER: "Prog GD Laser",
-  PROGSWGDONTS:   "Prog GD NTS",
-  PROGSWGUEZZT:   "Prog Guezzt",
-  PROGSWPMIINETPOS: "Prog PMI iNetPOS",
-  PROGSWPMINTS:   "Prog PM INT S",
-  CGSSWHOM:       "HOM",
-  CGSSWHON:       "HON",
-  CGSSWHOP:       "HOP",
-  CGSSWHOPAIR:    "HOP AIR",
-  CGSSWHORA:      "HOR A",
-  CGSSWHOS:       "HOS",
-  CGSSWPMIM:      "PMI M",
-  CGSSWPMIN:      "PMI N",
-  CGSSWRISM:      "RISM",
-  CGSSWRISN:      "RISN",
-  CGSSWRISS:      "RISS",
-};
 
 const STORAGE_KEYS = {
   syncToken: "apptaskbi_sync_github_token"
@@ -247,6 +196,7 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
   const [resourceFilterSearch, setResourceFilterSearch] = useState("");
   const [resourceDropdownOpen, setResourceDropdownOpen] = useState(false);
   const resourceDropdownRef = useRef<HTMLDivElement>(null);
+  const [resourceDescriptions, setResourceDescriptions] = useState<Record<string, string>>({});
 
   useEffect(() => {
     setGithubToken(readStoredToken());
@@ -255,8 +205,9 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
   const loadNotes = useCallback(async () => {
     try {
       setIsNotesLoading(true);
-      const notes = await getJobProgressLineNotes();
+      const [notes, descriptions] = await Promise.all([getJobProgressLineNotes(), getResources()]);
       setLineNotes(notes);
+      setResourceDescriptions(descriptions);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Errore caricamento note";
       setError(msg);
@@ -340,7 +291,7 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
     } finally {
       setLoading(false);
     }
-  }, [plannedHoursByJob, divisionScope]); // divisionScope è GroupScope
+  }, [plannedHoursByJob, divisionScope]); // divisionScope Ã¨ GroupScope
 
   useEffect(() => {
     loadData();
@@ -444,7 +395,7 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
       try {
         const result = await syncJobsFromPrimarySource();
         const message = result.message || "Aggiornamento dati completato";
-        const staticModeMessage = message.toLowerCase().includes("modalità statica") || message.toLowerCase().includes("modalita statica");
+        const staticModeMessage = message.toLowerCase().includes("modalitÃ  statica") || message.toLowerCase().includes("modalita statica");
 
         if (staticModeMessage) {
           await handleDispatchStaticSync();
@@ -455,7 +406,7 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
         await loadData();
       } catch (syncErr) {
         const syncMessage = syncErr instanceof Error ? syncErr.message : "";
-        const isStaticMode = syncMessage.toLowerCase().includes("modalità statica") || syncMessage.toLowerCase().includes("modalita statica");
+        const isStaticMode = syncMessage.toLowerCase().includes("modalitÃ  statica") || syncMessage.toLowerCase().includes("modalita statica");
 
         if (!isStaticMode) {
           throw syncErr;
@@ -907,7 +858,7 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
               >
                 <option value="bi">BI (CGSSWPOW)</option>
                 <option value="crm">CRM</option>
-                <option value="all">Tutti (modalità PM)</option>
+                <option value="all">Tutti (modalitÃ  PM)</option>
               </select>
             </label>
             <label>
@@ -953,10 +904,10 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
                     {selectedResourceNos.length === 0
                       ? `Tutte le risorse (${availableResourceNos.length})`
                       : selectedResourceNos.length === 1
-                        ? `${selectedResourceNos[0]}${RESOURCE_DESCRIPTIONS[selectedResourceNos[0]] ? " — " + RESOURCE_DESCRIPTIONS[selectedResourceNos[0]] : ""}`
+                        ? `${selectedResourceNos[0]}${resourceDescriptions[selectedResourceNos[0]] ? " â€” " + resourceDescriptions[selectedResourceNos[0]] : ""}`
                         : `${selectedResourceNos.length} risorse selezionate`}
                   </span>
-                  <span style={{ marginLeft: "8px", opacity: 0.5 }}>{resourceDropdownOpen ? "▲" : "▼"}</span>
+                  <span style={{ marginLeft: "8px", opacity: 0.5 }}>{resourceDropdownOpen ? "â–²" : "â–¼"}</span>
                 </button>
                 {/* Dropdown panel */}
                 {resourceDropdownOpen && (
@@ -992,7 +943,7 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
                         onClick={() => {
                           const visible = availableResourceNos.filter((r) => {
                             const term = resourceFilterSearch.toLowerCase();
-                            return r.toLowerCase().includes(term) || (RESOURCE_DESCRIPTIONS[r] || "").toLowerCase().includes(term);
+                            return r.toLowerCase().includes(term) || (resourceDescriptions[r] || "").toLowerCase().includes(term);
                           });
                           setSelectedResourceNos((prev) => Array.from(new Set([...prev, ...visible])));
                         }}
@@ -1013,10 +964,10 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
                       {availableResourceNos
                         .filter((r) => {
                           const term = resourceFilterSearch.toLowerCase();
-                          return r.toLowerCase().includes(term) || (RESOURCE_DESCRIPTIONS[r] || "").toLowerCase().includes(term);
+                          return r.toLowerCase().includes(term) || (resourceDescriptions[r] || "").toLowerCase().includes(term);
                         })
                         .map((r) => {
-                          const desc = RESOURCE_DESCRIPTIONS[r] || "";
+                          const desc = resourceDescriptions[r] || "";
                           const isSelected = selectedResourceNos.includes(r);
                           return (
                             <label
@@ -1046,7 +997,7 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
                         })}
                       {availableResourceNos.filter((r) => {
                         const term = resourceFilterSearch.toLowerCase();
-                        return r.toLowerCase().includes(term) || (RESOURCE_DESCRIPTIONS[r] || "").toLowerCase().includes(term);
+                        return r.toLowerCase().includes(term) || (resourceDescriptions[r] || "").toLowerCase().includes(term);
                       }).length === 0 && (
                         <div style={{ padding: "12px 14px", color: "#94a3b8", fontSize: "13px" }}>Nessuna risorsa trovata</div>
                       )}
@@ -1150,7 +1101,7 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
                           <tr style={{ backgroundColor: "#f1f5f9", borderTop: "2px solid #cbd5e1" }}>
                             <td>
                               <button className="job-expand-button" onClick={() => handleToggleJob(job.jobNo)}>
-                                <span>{isExpanded ? "▼" : "▶"}</span>
+                                <span>{isExpanded ? "â–¼" : "â–¶"}</span>
                                 <strong style={{ fontSize: "13px" }}>{job.jobNo}</strong>
                               </button>
                               <span style={{ fontSize: "11px", color: "#64748b", marginLeft: "8px" }}>{job.lineCount} {job.lineCount === 1 ? "riga" : "righe"}</span>
@@ -1202,13 +1153,13 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
                               <button
                                 className="primary-small"
                                 onClick={() => onCreateTaskFromJob?.(macroJob)}
-                                title={orePianificabili > 0 ? `Pianifica su commessa (${orePianificabili.toFixed(1)}h pianificabili)` : "Commessa già coperta — puoi comunque aggiungere"}
+                                title={orePianificabili > 0 ? `Pianifica su commessa (${orePianificabili.toFixed(1)}h pianificabili)` : "Commessa giÃ  coperta â€” puoi comunque aggiungere"}
                               >
                                 +
                               </button>
                             </td>
                           </tr>
-                          {/* Righe di dettaglio — visibili solo se espanse */}
+                          {/* Righe di dettaglio â€” visibili solo se espanse */}
                           {isExpanded && detailLines.map((line, index) => {
                             const remainingHours = line.soldHours - line.loggedHours;
                             const remainingDays = remainingHours / HOURS_PER_DAY;
@@ -1217,7 +1168,7 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
                             const linePlanningJob: PlanningJob = {
                               jobNo: line.jobNo,
                               jobPlanNo: line.jobPlanNo,
-                              planDescription: line.planDescription || `Riga ${line.jobPlanNo} — ${line.jobNo}`,
+                              planDescription: line.planDescription || `Riga ${line.jobPlanNo} â€” ${line.jobNo}`,
                               division: line.division,
                               customerName: line.customerName,
                               quantity: line.soldHours,
@@ -1231,7 +1182,7 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
                             return (
                               <tr key={`${job.jobNo}-${line.jobPlanNo}-${index}`} style={{ backgroundColor: "#fff" }}>
                                 <td style={{ paddingLeft: "28px" }}>
-                                  <span style={{ fontSize: "11px", color: "#475569" }}>↳ {line.jobPlanNo || "-"}</span>
+                                  <span style={{ fontSize: "11px", color: "#475569" }}>â†³ {line.jobPlanNo || "-"}</span>
                                 </td>
                                 <td style={{ fontSize: "13px", color: "#475569" }}>{line.customerName || "-"}</td>
                                 <td style={{ maxWidth: "240px", fontSize: "13px" }}>{line.planDescription || "-"}</td>
@@ -1280,7 +1231,7 @@ export default function JobProgressPage({ tasks, onSwitchPage, onCreateTaskFromJ
                                   <button
                                     className="primary-small"
                                     onClick={() => onCreateTaskFromJob?.(linePlanningJob)}
-                                    title={lineOrePianificabili > 0 ? `Pianifica riga (${lineOrePianificabili.toFixed(1)}h residue)` : "Riga già coperta — puoi comunque aggiungere"}
+                                    title={lineOrePianificabili > 0 ? `Pianifica riga (${lineOrePianificabili.toFixed(1)}h residue)` : "Riga giÃ  coperta â€” puoi comunque aggiungere"}
                                   >
                                     +
                                   </button>

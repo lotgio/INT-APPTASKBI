@@ -556,6 +556,18 @@ export async function getJobsDataLastUpdate(): Promise<string | null> {
   }
 }
 
+export async function getResources(): Promise<Record<string, string>> {
+  try {
+    const base = BASE_URL.endsWith("/") ? BASE_URL : BASE_URL + "/";
+    const response = await fetch(`${base}resources.json`, { cache: "no-store" });
+    if (!response.ok) return {};
+    const data: Array<{ No: string; Name: string }> = await response.json();
+    return Object.fromEntries(data.map((r) => [r.No, r.Name]));
+  } catch {
+    return {};
+  }
+}
+
 export async function getJobProgressLineNotes(): Promise<Record<string, string>> {
   if (USE_SUPABASE && supabase) {
     const { data, error } = await supabase
