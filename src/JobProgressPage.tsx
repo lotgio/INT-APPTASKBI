@@ -1,6 +1,6 @@
 ﻿import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx-js-style";
-import { dispatchSyncJobsWorkflowWithToken, getJobProgressLineNotes, getJobs, getJobsDataLastUpdate, saveJobProgressLineNote, syncJobsFromPrimarySource } from "./api";
+import { dispatchSyncJobsWorkflowWithToken, getJobProgressLineNotes, getJobs, getJobsDataLastUpdate, getResources, saveJobProgressLineNote, syncJobsFromPrimarySource } from "./api";
 import type { Task } from "./types";
 
 interface Props {
