@@ -58,12 +58,20 @@ def main():
     status_field = next((column for column in frame.columns if normalize(column) == "statoattivita"), None)
     if status_field:
         date_column = next((column for column in frame.columns if normalize(column) == "dataattivita"), None)
+        person_column = next((column for column in frame.columns if normalize(column) == "persona"), None)
         logged_column = next((column for column in frame.columns if normalize(column) == "oreloggate"), None)
-        confirmed_column = next((column for column in frame.columns if normalize(column) == "oreflagconfirmeddb"), None)
-        if date_column and logged_column and confirmed_column:
-            month_rows = frame.loc[pd.to_datetime(frame[date_column], errors="coerce").dt.strftime("%Y-%m") == "2026-11"]
-            probe = month_rows.groupby(status_field)[[logged_column, confirmed_column]].sum(numeric_only=True)
-            print(f"Riepilogo novembre per Stato Attivita (ore loggate / flag DB): {probe.to_dict(orient='index')}")
+        confirmed_column = next((column for column in frame.columns if normalize(column) == "oreconfermate"), None)
+        flag_column = next((column for column in frame.columns if normalize(column) == "oreflagconfirmeddb"), None)
+        if date_column and person_column and logged_column and confirmed_column and flag_column:
+            probe_dates = pd.to_datetime(frame[date_column], errors="coerce")
+            probe = frame.loc[
+                (frame[person_column].astype(str).str.strip().str.casefold() == "lotta giorgia")
+                & (probe_dates >= pd.Timestamp("2026-10-26"))
+                & (probe_dates < pd.Timestamp("2026-11-10"))
+            ].copy()
+            probe["_probe_date"] = probe_dates.loc[probe.index].dt.strftime("%Y-%m-%d")
+            summary = probe.groupby(["_probe_date", status_field])[[logged_column, confirmed_column, flag_column]].sum(numeric_only=True)
+            print(f"Dettaglio verifica calendario (loggate / confermate / flag DB): {summary.to_dict(orient='index')}")
 
     date_field = find_field(frame.columns, "date")
     person_field = find_field(frame.columns, "person")
