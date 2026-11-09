@@ -3,15 +3,13 @@ import { getActivityLogs } from "./api";
 import "./ActivityCalendarPage.css";
 
 type Row = Record<string, unknown>;
-type FieldKind = "date" | "person" | "hours";
-const CANDIDATES: Record<FieldKind, string[]> = {
-  date: ["data", "giorno", "postingdate", "workdate", "activitydate", "date"],
-  person: ["componente", "persona", "risorsa", "nome", "nominativo", "dipendente", "utente", "resource", "resourcename", "employeename", "person", "member"],
-  hours: ["ore", "oreloggate", "durata", "oreconsuntivate", "hours", "loggedhours", "quantity", "workinghours", "time"]
+type TeamGroup = "BI" | "CRM";
+const TEAM_MEMBERS: Record<TeamGroup, string[]> = {
+  BI: ["Lotta Giorgia", "Favero Matteo", "Stocco Alberto"],
+  CRM: ["Mason Mauro", "Padovan Matteo", "Micheletto Nicola"]
 };
-function normalize(value: string) { return value.toLowerCase().replace(/[^a-z0-9]/g, ""); }
-function guessField(columns: string[], kind: FieldKind) {
-  return columns.find((column) => CANDIDATES[kind].includes(normalize(column))) || columns.find((column) => CANDIDATES[kind].some((candidate) => normalize(column).includes(candidate))) || "";
+function normalize(value: string) {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 function toDay(value: unknown) {
   const raw = String(value ?? "").trim();
@@ -36,8 +34,8 @@ export default function ActivityCalendarPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [month, setMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
-  const [selectedPerson, setSelectedPerson] = useState("");
-  const [fields, setFields] = useState({ date: "", person: "", hours: "" });
+  const [group, setGroup] = useState<TeamGroup>("BI");
+  const [selectedPerson, setSelectedPerson] = useState(TEAM_MEMBERS.BI[0]);
 
   async function refresh() {
     setLoading(true); setError("");
@@ -47,29 +45,18 @@ export default function ActivityCalendarPage() {
   }
   useEffect(() => { void refresh(); }, []);
 
-  const columns = useMemo(() => records.length ? Object.keys(records[0]) : [], [records]);
-  useEffect(() => {
-    if (!columns.length) return;
-    setFields((current) => ({
-      date: current.date || guessField(columns, "date"),
-      person: current.person || guessField(columns, "person"),
-      hours: current.hours || guessField(columns, "hours")
-    }));
-  }, [columns]);
-  const people = useMemo(() => [...new Set(records.map((row) => String(row[fields.person] ?? "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, "it")), [records, fields.person]);
-  useEffect(() => { if (people.length && !people.includes(selectedPerson)) setSelectedPerson(people[0]); }, [people, selectedPerson]);
+  const people = TEAM_MEMBERS[group];
 
   const totals = useMemo(() => {
     const result = new Map<string, number>();
-    if (!fields.date || !fields.person || !fields.hours) return result;
     const monthPrefix = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}`;
     records.forEach((row) => {
-      if (String(row[fields.person] ?? "").trim() !== selectedPerson) return;
-      const day = toDay(row[fields.date]);
-      if (day.startsWith(monthPrefix)) result.set(day, (result.get(day) || 0) + toHours(row[fields.hours]));
+      if (normalize(String(row.Componente ?? "").trim()) !== normalize(selectedPerson)) return;
+      const day = toDay(row.Data);
+      if (day.startsWith(monthPrefix)) result.set(day, (result.get(day) || 0) + toHours(row.Ore));
     });
     return result;
-  }, [records, fields, selectedPerson, month]);
+  }, [records, selectedPerson, month]);
 
   const firstWeekday = (month.getDay() + 6) % 7;
   const lastDay = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
@@ -78,7 +65,6 @@ export default function ActivityCalendarPage() {
   const compliant = loggedHours.filter((hours) => hours >= 8).length;
   const below = loggedHours.filter((hours) => hours < 8).length;
   const totalHours = loggedHours.reduce((sum, hours) => sum + hours, 0);
-  const fieldsReady = Boolean(fields.date && fields.person && fields.hours);
   const monthName = month.toLocaleDateString("it-IT", { month: "long", year: "numeric" });
 
   return (
@@ -97,13 +83,13 @@ export default function ActivityCalendarPage() {
       {!loading && !error && records.length === 0 && <div className="activity-alert">Il file delle consuntivazioni non contiene righe.</div>}
       {!loading && records.length > 0 && <>
         <section className="activity-toolbar">
-          <label>Componente<select value={selectedPerson} onChange={(event) => setSelectedPerson(event.target.value)}>{people.map((name) => <option key={name} value={name}>{name}</option>)}</select></label>
-          <div className="activity-field-map"><span>Colonne del file</span>
-            {([["date", "Data"], ["person", "Componente"], ["hours", "Ore"]] as const).map(([kind, label]) => <label key={kind}>{label}<select value={fields[kind]} onChange={(event) => setFields((current) => ({ ...current, [kind]: event.target.value }))}><option value="">Seleziona colonna</option>{columns.map((column) => <option key={column} value={column}>{column}</option>)}</select></label>)}
+          <div className="activity-group-picker" role="group" aria-label="Gruppo del team">
+            <span>Gruppo</span>
+            <div>{(["BI", "CRM"] as TeamGroup[]).map((teamGroup) => <button key={teamGroup} type="button" aria-pressed={group === teamGroup} onClick={() => { setGroup(teamGroup); setSelectedPerson(TEAM_MEMBERS[teamGroup][0]); }}>{teamGroup}</button>)}</div>
           </div>
+          <label>Componente<select value={selectedPerson} onChange={(event) => setSelectedPerson(event.target.value)}>{people.map((name) => <option key={name} value={name}>{name}</option>)}</select></label>
         </section>
-        {!fieldsReady && <div className="activity-alert">Associa le colonne di data, componente e ore per visualizzare il calendario.</div>}
-        {fieldsReady && <>
+        <>
           <section className="activity-stats">
             <article><span>Ore registrate</span><strong>{totalHours.toLocaleString("it-IT", { maximumFractionDigits: 1 })}</strong><small>{selectedPerson} · {monthName}</small></article>
             <article><span>Giornate in soglia</span><strong className="activity-green">{compliant}</strong><small>Almeno 8 ore</small></article>
@@ -121,7 +107,7 @@ export default function ActivityCalendarPage() {
             })}</div>
             <footer className="activity-legend"><span><i className="legend-good" /> Almeno 8 ore</span><span><i className="legend-low" /> Meno di 8 ore</span><span><i className="legend-none" /> Nessun dato</span></footer>
           </section>
-        </>}
+        </>
       </>}
     </main>
   );
