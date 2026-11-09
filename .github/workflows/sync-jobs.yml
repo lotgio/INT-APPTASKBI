@@ -69,6 +69,11 @@ jobs:
           echo "AZURE_STORAGE_CONTAINER set: ${{ secrets.AZURE_STORAGE_CONTAINER != '' }}"
           echo "AZURE_STORAGE_BLOB set: ${{ secrets.AZURE_STORAGE_BLOB != '' }}"
 
+      - name: Check activity storage secrets presence
+        run: |
+          echo "AZURE_ACTIVITY_STORAGE_ACCOUNT set: ${{ secrets.AZURE_ACTIVITY_STORAGE_ACCOUNT != '' }}"
+          echo "AZURE_ACTIVITY_STORAGE_KEY set: ${{ secrets.AZURE_ACTIVITY_STORAGE_KEY != '' }}"
+
       - name: Sync jobs from Azure Blob
         continue-on-error: true
         run: |
