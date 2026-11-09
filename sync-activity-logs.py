@@ -87,6 +87,16 @@ def main():
     daily["Tipo attività"] = "Non COIG"
     daily.loc[code.str.startswith("COIG") | name.str.startswith("COIG") | activity.str.startswith("COIG"), "Tipo attività"] = "COIG"
 
+    customer_by_job = {}
+    jobs_path = Path("public/jobs.json")
+    if jobs_path.exists():
+        for job in json.loads(jobs_path.read_text(encoding="utf-8")):
+            job_code = normalize(job.get("JobNo", ""))
+            customer = str(job.get("Customer Name") or "").strip()
+            if job_code and customer:
+                customer_by_job[job_code] = customer
+    daily["Cliente"] = daily["Codice commessa"].map(lambda value: customer_by_job.get(normalize(value), ""))
+
     output_fields = {
         "hours": "Ore Loggate",
         "confirmed_hours": "Ore Confermate",
@@ -111,7 +121,7 @@ def main():
     daily = daily.dropna(subset=[date_field, person_field])
     daily = daily[daily[person_field].map(normalize).isin({normalize(name) for name in TEAM_MEMBERS})]
     sum_columns = list(output_fields.values())
-    detail_columns = [*detail_fields.keys(), "Tipo attività"]
+    detail_columns = [*detail_fields.keys(), "Cliente", "Tipo attività"]
     group_columns = [date_field, person_field, *detail_columns]
     daily = daily.groupby(group_columns, as_index=False, dropna=True)[sum_columns].sum()
     daily = daily.rename(columns={date_field: "Data", person_field: "Componente"})
