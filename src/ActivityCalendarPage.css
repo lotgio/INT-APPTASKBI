@@ -87,3 +87,46 @@
 .activity-job-badge.coig { color: #285b3a; background: #e9f5ed; }
 .activity-job-report table { min-width: 760px; }
 @media (max-width: 620px) { .activity-job-kpis { grid-template-columns: 1fr; padding: 10px; } }
+
+.activity-analysis { display: grid; gap: 14px; padding: 16px 18px; }
+.activity-balance-card, .activity-chart-card { border: 1px solid #e7ecf1; border-radius: 10px; background: #fff; }
+.activity-balance-card { padding: 16px; }
+.activity-balance-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.activity-balance-heading > div { display: grid; gap: 4px; }
+.activity-balance-heading strong { color: #27384b; font-size: 13px; }
+.activity-balance-heading small { color: #6f7e8f; font-size: 11px; }
+.activity-balance-heading > span { color: #27384b; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.activity-balance-track { display: flex; width: 100%; height: 18px; overflow: hidden; margin: 14px 0 12px; border-radius: 999px; background: #edf1f5; }
+.activity-balance-track span { height: 100%; transition: width .25s ease; }
+.activity-balance-coig { background: #3b8a5a; }
+.activity-balance-external { background: #4b77cf; }
+.activity-balance-legend { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 18px; }
+.activity-balance-legend > span { display: inline-flex; align-items: center; gap: 7px; color: #637285; font-size: 11px; }
+.activity-balance-legend strong { color: #27384b; font-variant-numeric: tabular-nums; }
+.activity-dot { width: 8px; height: 8px; border-radius: 50%; }
+.activity-dot.coig { background: #3b8a5a; }
+.activity-dot.external { background: #4b77cf; }
+.activity-concentration-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.activity-chart-card { min-width: 0; padding: 14px 15px; }
+.activity-chart-card > header { display: flex; justify-content: space-between; gap: 10px; padding: 0 0 12px; border: 0; }
+.activity-chart-card > header > div { display: grid; gap: 4px; }
+.activity-chart-card h3 { margin: 0; color: #27384b; font-size: 13px; }
+.activity-chart-card > header p, .activity-chart-card > header > span { margin: 0; color: #7a8795; font-size: 10px; }
+.activity-chart-card ol { display: grid; gap: 13px; margin: 0; padding: 0; list-style: none; }
+.activity-chart-card li { display: grid; gap: 6px; min-width: 0; }
+.activity-chart-label { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; color: #4b5969; font-size: 11px; }
+.activity-chart-label > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.activity-chart-label > strong { flex: 0 0 auto; color: #27384b; font-size: 11px; font-variant-numeric: tabular-nums; }
+.activity-chart-label small { margin-left: 4px; color: #8490a0; font-size: 9px; font-weight: 500; }
+.activity-chart-track { height: 7px; overflow: hidden; border-radius: 999px; background: #edf1f5; }
+.activity-chart-track i { display: block; height: 100%; border-radius: inherit; }
+.activity-chart-track i.coig { background: #3b8a5a; }
+.activity-chart-track i.external { background: #4b77cf; }
+.activity-chart-note { margin: 13px 0 0; padding-top: 10px; border-top: 1px solid #edf0f3; color: #6d7988; font-size: 10px; line-height: 1.5; }
+.activity-chart-note strong { color: #35465a; }
+.activity-chart-empty { margin: 4px 0; color: #8490a0; font-size: 11px; }
+.activity-job-details { border-top: 1px solid #edf0f3; }
+.activity-job-details summary { padding: 13px 18px; color: #53647a; background: #fbfcfd; cursor: pointer; font-size: 11px; font-weight: 650; }
+.activity-job-details table { min-width: 900px; }
+@media (max-width: 780px) { .activity-concentration-grid { grid-template-columns: 1fr; } }
+@media (max-width: 620px) { .activity-analysis { padding: 10px; } .activity-balance-card { padding: 12px; } .activity-balance-legend { display: grid; } }
