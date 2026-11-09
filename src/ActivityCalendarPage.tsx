@@ -5,7 +5,7 @@ import "./ActivityCalendarPage.css";
 type Row = Record<string, unknown>;
 type TeamGroup = "BI" | "CRM";
 const TEAM_MEMBERS: Record<TeamGroup, string[]> = {
-  BI: ["Lotta Giorgia", "Favero Matteo", "Stocco Alberto"],
+  BI: ["Lotta Giorgia", "Favero Matteo", "Stocco Alberto", "Vita Anna"],
   CRM: ["Mason Mauro", "Padovan Matteo", "Micheletto Nicola"]
 };
 function normalize(value: string) {

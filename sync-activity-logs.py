@@ -47,6 +47,7 @@ def main():
     client.download_blob().readinto(content)
     content.seek(0)
     frame = pd.read_parquet(content)
+    print(f"Colonne origine parquet: {', '.join(str(column) for column in frame.columns)}")
     date_field = find_field(frame.columns, "date")
     person_field = find_field(frame.columns, "person")
     hours_field = find_field(frame.columns, "hours")
