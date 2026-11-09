@@ -7,6 +7,7 @@ type TeamGroup = "BI" | "CRM";
 type DayTotals = { logged: number; confirmed: number; unconfirmed: number };
 type ActivityAlert = { id: string; date: string; kind: "hours" | "confirmation"; logged: number; confirmed: number };
 const DAILY_TARGET = 8;
+const ALERT_START_DATE = "2026-11-01";
 const TEAM_MEMBERS: Record<TeamGroup, string[]> = {
   BI: ["Lotta Giorgia", "Favero Matteo", "Stocco Alberto", "Vita Anna"],
   CRM: ["Mason Mauro", "Padovan Matteo", "Micheletto Nicola"]
@@ -144,7 +145,7 @@ export default function ActivityCalendarPage() {
     if (!firstActivityDate) return [] as ActivityAlert[];
     const found = new Map<string, ActivityAlert>();
     const addAlert = (day: string, kind: ActivityAlert["kind"]) => {
-      if (day < firstActivityDate) return;
+      if (day < ALERT_START_DATE || day < firstActivityDate) return;
       const total = allTotals.get(day) || { logged: 0, confirmed: 0, unconfirmed: 0 };
       const id = `${kind}:${day}`;
       found.set(id, { id, date: day, kind, logged: total.logged, confirmed: total.confirmed });
@@ -187,6 +188,21 @@ export default function ActivityCalendarPage() {
     confirmed: sum.confirmed + day.confirmed,
     unconfirmed: sum.unconfirmed + day.unconfirmed
   }), { logged: 0, confirmed: 0, unconfirmed: 0 });
+  const complianceRate = completeWorkdayKeys.length ? compliant / completeWorkdayKeys.length * 100 : 0;
+  const confirmationRate = total.logged ? total.confirmed / total.logged * 100 : 0;
+  const weeklyKpis = new Map<string, { workdays: number; completeDays: number; logged: number; confirmed: number; unconfirmed: number }>();
+  completeWorkdayKeys.forEach((day) => {
+    const week = mondayOfWeek(day);
+    const kpi = weeklyKpis.get(week) || { workdays: 0, completeDays: 0, logged: 0, confirmed: 0, unconfirmed: 0 };
+    const value = allTotals.get(day) || { logged: 0, confirmed: 0, unconfirmed: 0 };
+    kpi.workdays++;
+    if (value.logged >= DAILY_TARGET) kpi.completeDays++;
+    kpi.logged += value.logged;
+    kpi.confirmed += value.confirmed;
+    kpi.unconfirmed += value.unconfirmed;
+    weeklyKpis.set(week, kpi);
+  });
+  const weeklyRows = [...weeklyKpis.entries()].sort(([a], [b]) => a.localeCompare(b));
   const firstWeekday = (month.getDay() + 6) % 7;
   const lastDay = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
   const slots: (number | null)[] = [...Array(firstWeekday).fill(null), ...Array.from({ length: lastDay }, (_, i) => i + 1)];
@@ -215,11 +231,34 @@ export default function ActivityCalendarPage() {
           <label>Componente<select value={selectedPerson} onChange={(event) => setSelectedPerson(event.target.value)}>{people.map((name) => <option key={name} value={name}>{name}</option>)}</select></label>
         </section>
         <section className="activity-stats">
-          <article><span>Ore loggate</span><strong>{formatHours(total.logged)}</strong><small>{selectedPerson} · {monthName} · soli giorni lavorativi</small></article>
+          <article><span>Giornate lavorative</span><strong>{completeWorkdayKeys.length}</strong><small>Giorni trascorsi nel periodo</small></article>
+          <article><span>Giornate ≥ 8 ore</span><strong className="activity-green">{compliant} / {completeWorkdayKeys.length}</strong><small>{complianceRate.toLocaleString("it-IT", { maximumFractionDigits: 0 })}% di copertura</small></article>
+          <article><span>Ore loggate</span><strong>{formatHours(total.logged)}</strong><small>{selectedPerson} · {monthName} · giorni lavorativi</small></article>
           <article><span>Ore confermate</span><strong className="activity-green">{formatHours(total.confirmed)}</strong><small>Solo giorni lavorativi</small></article>
-          <article><span>Ore non confermate</span><strong className={total.unconfirmed ? "activity-red" : "activity-green"}>{formatHours(total.unconfirmed)}</strong><small>Solo giorni lavorativi</small></article>
-          <article><span>Giornate in soglia</span><strong className="activity-green">{compliant}</strong><small>Giornate lavorative complete · almeno 8h</small></article>
-          <article><span>Alert attivi</span><strong className={alerts.length ? "activity-red" : "activity-green"}>{alerts.length}</strong><small>{below} giornate lavorative sotto 8h</small></article>
+          <article><span>Percentuale confermata</span><strong>{confirmationRate.toLocaleString("it-IT", { maximumFractionDigits: 0 })}%</strong><small>{formatHours(total.unconfirmed)}h ancora non confermate</small></article>
+          <article><span>Alert aperti</span><strong className={alerts.length ? "activity-red" : "activity-green"}>{alerts.length}</strong><small>{below} giornate sotto le 8 ore</small></article>
+        </section>
+
+        <section className="activity-report">
+          <header><div><h2>Report settimanale</h2><p>{selectedPerson} · {monthName} · giorni lavorativi trascorsi</p></div><span>Obiettivo giornaliero: 8h</span></header>
+          {weeklyRows.length === 0 ? <p className="activity-report-empty">Nessun giorno lavorativo trascorso nel periodo selezionato.</p> :
+            <div className="activity-table-wrap"><table>
+              <thead><tr><th>Settimana</th><th>Giorni</th><th>Giornate ≥ 8h</th><th>Ore loggate / attese</th><th>Ore confermate</th><th>Tasso conferma</th><th>Alert</th></tr></thead>
+              <tbody>{weeklyRows.map(([week, kpi]) => {
+                const weekAlerts = alerts.filter((alert) => alert.date >= week && alert.date <= addDays(week, 6)).length;
+                const expectedHours = kpi.workdays * DAILY_TARGET;
+                const weekConfirmationRate = kpi.logged ? kpi.confirmed / kpi.logged * 100 : 0;
+                return <tr key={week} className={weekAlerts ? "weekly-alert" : ""}>
+                  <td>{formatDay(week)} – {formatDay(addDays(week, 4))}</td>
+                  <td>{kpi.workdays}</td>
+                  <td>{kpi.completeDays} / {kpi.workdays} ({(kpi.completeDays / kpi.workdays * 100).toLocaleString("it-IT", { maximumFractionDigits: 0 })}%)</td>
+                  <td>{formatHours(kpi.logged)} / {formatHours(expectedHours)}h</td>
+                  <td>{formatHours(kpi.confirmed)}h</td>
+                  <td>{weekConfirmationRate.toLocaleString("it-IT", { maximumFractionDigits: 0 })}%</td>
+                  <td>{weekAlerts || "—"}</td>
+                </tr>;
+              })}</tbody>
+            </table></div>}
         </section>
 
         <section className="activity-alert-register" aria-live="polite">
