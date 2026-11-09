@@ -246,7 +246,7 @@ export default function ActivityCalendarPage() {
             const state = !workingDay ? "activity-nonworking" : dayAlerts.length ? "activity-anomaly" : value === undefined ? "activity-no-data" : value.confirmed >= DAILY_TARGET ? "activity-good" : value.logged >= DAILY_TARGET ? "activity-logged" : "activity-low";
             return <article key={key} className={`activity-day ${state}`} title={holiday || (!workingDay ? "Fine settimana — escluso dal conteggio" : "")}>
               <span>{day}</span>
-              {!workingDay ? <small>{holiday || "Weekend · escluso"}</small> : value === undefined ? <><small>{dayAlerts.some((alert) => alert.kind === "hours") ? "Nessun dato · 0h loggate" : "Nessun dato"}</small>{dayAlerts.length > 0 && <small className="activity-day-alert-label">Anomalia da verificare</small>}</small> :
+              {!workingDay ? <small>{holiday || "Weekend · escluso"}</small> : value === undefined ? <><small>{dayAlerts.some((alert) => alert.kind === "hours") ? "Nessun dato · 0h loggate" : "Nessun dato"}</small>{dayAlerts.length > 0 && <small className="activity-day-alert-label">Anomalia da verificare</small>}</> :
                 <><strong>{formatHours(value.logged)} h loggate</strong><small>{formatHours(value.confirmed)} h confermate</small><small>{formatHours(value.unconfirmed)} h non confermate</small>{dayAlerts.length > 0 && <small className="activity-day-alert-label">Anomalia da verificare</small>}</>}
             </article>;
           })}</div>
