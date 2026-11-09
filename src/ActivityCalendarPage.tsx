@@ -150,6 +150,12 @@ export default function ActivityCalendarPage() {
       found.set(id, { id, date: day, kind, logged: total.logged, confirmed: total.confirmed });
     };
 
+    for (const [key, total] of allTotals.entries()) {
+      if (key >= todayKey || key < firstActivityDate || !isWorkday(key)) continue;
+      if (total.logged < DAILY_TARGET) addAlert(key, "hours");
+      if (confirmationDeadlinePassed(key, todayKey, romeHour) && total.confirmed < DAILY_TARGET) addAlert(key, "confirmation");
+    }
+
     const monthDays = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
     for (let day = 1; day <= monthDays; day++) {
       const key = dateKey(month.getFullYear(), month.getMonth() + 1, day);
@@ -163,10 +169,9 @@ export default function ActivityCalendarPage() {
     for (let offset = 0; offset < 5; offset++) {
       const key = addDays(previousWeekStart, offset);
       if (!isWorkday(key) || key < firstActivityDate) continue;
-      if (confirmationDeadlinePassed(key, todayKey, romeHour)) {
-        const total = allTotals.get(key) || { logged: 0, confirmed: 0, unconfirmed: 0 };
-        if (total.confirmed < DAILY_TARGET) addAlert(key, "confirmation");
-      }
+      const total = allTotals.get(key) || { logged: 0, confirmed: 0, unconfirmed: 0 };
+      if (total.logged < DAILY_TARGET) addAlert(key, "hours");
+      if (confirmationDeadlinePassed(key, todayKey, romeHour) && total.confirmed < DAILY_TARGET) addAlert(key, "confirmation");
     }
     return [...found.values()].sort((a, b) => a.date.localeCompare(b.date) || a.kind.localeCompare(b.kind));
   }, [allTotals, firstActivityDate, month, todayKey, romeHour]);
