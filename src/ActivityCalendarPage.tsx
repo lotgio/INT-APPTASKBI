@@ -177,9 +177,11 @@ export default function ActivityCalendarPage() {
   }, [allTotals, firstActivityDate, month, todayKey, romeHour]);
 
   const monthEntries = [...totals.entries()].filter(([day]) => isWorkday(day) && day <= todayKey);
-  const completeWorkdays = monthEntries.filter(([day]) => day < todayKey);
-  const compliant = completeWorkdays.filter(([, total]) => total.logged >= DAILY_TARGET).length;
-  const below = completeWorkdays.filter(([, total]) => total.logged < DAILY_TARGET).length;
+  const monthDays = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+  const completeWorkdayKeys = Array.from({ length: monthDays }, (_, index) => dateKey(month.getFullYear(), month.getMonth() + 1, index + 1))
+    .filter((day) => day >= firstActivityDate && day < todayKey && isWorkday(day));
+  const compliant = completeWorkdayKeys.filter((day) => (allTotals.get(day)?.logged || 0) >= DAILY_TARGET).length;
+  const below = completeWorkdayKeys.filter((day) => (allTotals.get(day)?.logged || 0) < DAILY_TARGET).length;
   const total = monthEntries.reduce((sum, [, day]) => ({
     logged: sum.logged + day.logged,
     confirmed: sum.confirmed + day.confirmed,
@@ -244,7 +246,7 @@ export default function ActivityCalendarPage() {
             const state = !workingDay ? "activity-nonworking" : dayAlerts.length ? "activity-anomaly" : value === undefined ? "activity-no-data" : value.confirmed >= DAILY_TARGET ? "activity-good" : value.logged >= DAILY_TARGET ? "activity-logged" : "activity-low";
             return <article key={key} className={`activity-day ${state}`} title={holiday || (!workingDay ? "Fine settimana — escluso dal conteggio" : "")}>
               <span>{day}</span>
-              {!workingDay ? <small>{holiday || "Weekend · escluso"}</small> : value === undefined ? <small>{key < todayKey && key >= firstActivityDate ? "Nessun dato · alert se lavorativo" : "Nessun dato"}</small> :
+              {!workingDay ? <small>{holiday || "Weekend · escluso"}</small> : value === undefined ? <><small>{dayAlerts.some((alert) => alert.kind === "hours") ? "Nessun dato · 0h loggate" : "Nessun dato"}</small>{dayAlerts.length > 0 && <small className="activity-day-alert-label">Anomalia da verificare</small>}</small> :
                 <><strong>{formatHours(value.logged)} h loggate</strong><small>{formatHours(value.confirmed)} h confermate</small><small>{formatHours(value.unconfirmed)} h non confermate</small>{dayAlerts.length > 0 && <small className="activity-day-alert-label">Anomalia da verificare</small>}</>}
             </article>;
           })}</div>
