@@ -6,6 +6,7 @@ type Row = Record<string, unknown>;
 type TeamGroup = "BI" | "CRM";
 type DayTotals = { logged: number; confirmed: number; unconfirmed: number };
 type ActivityAlert = { id: string; date: string; kind: "hours" | "confirmation"; logged: number; confirmed: number };
+type JobDetail = { code: string; name: string; activity: string; kind: "COIG" | "Non COIG"; logged: number; confirmed: number };
 const DAILY_TARGET = 8;
 const ALERT_START_DATE = "2026-11-01";
 const TEAM_MEMBERS: Record<TeamGroup, string[]> = {
@@ -141,6 +142,30 @@ export default function ActivityCalendarPage() {
   const monthPrefix = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}`;
   const totals = useMemo(() => new Map([...allTotals.entries()].filter(([day]) => day.startsWith(monthPrefix))), [allTotals, monthPrefix]);
 
+  const jobDetails = useMemo(() => {
+    const grouped = new Map<string, JobDetail>();
+    records.forEach((row) => {
+      if (normalize(String(row.Componente ?? "").trim()) !== normalize(selectedPerson)) return;
+      const day = toDay(row.Data);
+      if (!day || !day.startsWith(monthPrefix) || day > todayKey) return;
+      const code = String(row["Codice commessa"] ?? "").trim();
+      const name = String(row["Nome commessa"] ?? "").trim();
+      const activity = String(row["Dettaglio attività"] ?? "").trim();
+      const startsWithCoig = [code, name, activity].some((value) => /^COIG/i.test(value));
+      const kind: JobDetail["kind"] = String(row["Tipo attività"] ?? "").toUpperCase() === "COIG" || startsWithCoig ? "COIG" : "Non COIG";
+      const key = [kind, code, name, activity].join("|");
+      const current = grouped.get(key) || { code, name, activity, kind, logged: 0, confirmed: 0 };
+      current.logged += toHours(row["Ore Loggate"] ?? row.Ore);
+      current.confirmed += toHours(row["Ore Confermate"]);
+      grouped.set(key, current);
+    });
+    return [...grouped.values()].sort((a, b) => b.logged - a.logged || a.code.localeCompare(b.code, "it"));
+  }, [records, selectedPerson, monthPrefix, todayKey]);
+  const coigDetails = jobDetails.filter((item) => item.kind === "COIG");
+  const otherDetails = jobDetails.filter((item) => item.kind === "Non COIG");
+  const coigHours = coigDetails.reduce((sum, item) => sum + item.logged, 0);
+  const otherHours = otherDetails.reduce((sum, item) => sum + item.logged, 0);
+
   const alerts = useMemo(() => {
     if (!firstActivityDate) return [] as ActivityAlert[];
     const found = new Map<string, ActivityAlert>();
@@ -273,6 +298,25 @@ export default function ActivityCalendarPage() {
                   <td>{weekAlerts || "—"}</td>
                 </tr>;
               })}</tbody>
+            </table></div>}
+        </section>
+
+        <section className="activity-report activity-job-report">
+          <header><div><h2>Dettaglio commesse</h2><p>{selectedPerson} · {monthName} · attività registrate fino a oggi</p></div><span>{jobDetails.length} voci</span></header>
+          <div className="activity-job-kpis">
+            <article><span>Attività interne · codici COIG</span><strong>{formatHours(coigHours)} h</strong><small>{coigDetails.length} commesse o attività</small></article>
+            <article><span>Attività non COIG</span><strong>{formatHours(otherHours)} h</strong><small>{otherDetails.length} commesse o attività</small></article>
+          </div>
+          {jobDetails.length === 0 ? <p className="activity-report-empty">Nessuna commessa disponibile per il periodo selezionato.</p> :
+            <div className="activity-table-wrap"><table>
+              <thead><tr><th>Tipo</th><th>Codice commessa</th><th>Commessa / attività</th><th>Ore loggate</th><th>Ore confermate</th></tr></thead>
+              <tbody>{jobDetails.map((item, index) => <tr key={`${item.kind}|${item.code}|${item.name}|${item.activity}|${index}`}>
+                <td><span className={item.kind === "COIG" ? "activity-job-badge coig" : "activity-job-badge"}>{item.kind === "COIG" ? "Interna · COIG" : "Non COIG"}</span></td>
+                <td>{item.code || "—"}</td>
+                <td>{[item.name, item.activity].filter(Boolean).join(" · ") || "Descrizione non disponibile"}</td>
+                <td>{formatHours(item.logged)} h</td>
+                <td>{formatHours(item.confirmed)} h</td>
+              </tr>)}</tbody>
             </table></div>}
         </section>
 
