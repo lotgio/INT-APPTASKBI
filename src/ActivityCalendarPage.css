@@ -17,7 +17,7 @@
 .activity-group-picker > div { display: flex; gap: 3px; padding: 3px; background: #eef2f6; border-radius: 9px; }
 .activity-group-picker button { min-width: 64px; height: 34px; padding: 0 13px; border: 0; border-radius: 7px; background: transparent; color: #64748b; font: inherit; cursor: pointer; }
 .activity-group-picker button[aria-pressed="true"] { background: #17212e; color: #fff; box-shadow: 0 1px 3px rgba(15, 23, 42, .18); }
-.activity-stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; }
+.activity-stats { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 14px; }
 .activity-stats article { display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 17px 19px; background: #fff; border: 1px solid #e3e8ee; border-radius: 14px; box-shadow: 0 5px 16px rgba(16, 33, 53, .035); }
 .activity-stats article > span { color: #637285; font-size: 12px; font-weight: 600; }
 .activity-stats strong { font-size: 27px; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
@@ -54,11 +54,24 @@
 .activity-alert-register h2 { margin: 0; font-size: 16px; }
 .activity-alert-register > header > span { color: #748091; font-size: 12px; }
 .activity-alert-register > p { margin: 0; color: #617084; font-size: 13px; }
-.activity-alert-register ul { display: flex; flex-direction: column; gap: 7px; margin: 0; padding: 0; list-style: none; }
+.activity-alert-register ul { display: flex; flex-direction: column; gap: 7px; max-height: 360px; overflow-y: auto; margin: 0; padding: 0; list-style: none; }
+.activity-report { overflow: hidden; background: #fff; border: 1px solid #e3e8ee; border-radius: 14px; box-shadow: 0 5px 16px rgba(16, 33, 53, .035); }
+.activity-report > header { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 16px 19px; border-bottom: 1px solid #e8edf2; }
+.activity-report h2 { margin: 0; font-size: 16px; }
+.activity-report header p { margin: 4px 0 0; color: #7a8795; font-size: 11px; }
+.activity-report header > span { color: #637285; font-size: 11px; font-weight: 600; }
+.activity-table-wrap { overflow-x: auto; }
+.activity-report table { width: 100%; min-width: 850px; border-collapse: collapse; font-size: 12px; }
+.activity-report th, .activity-report td { padding: 11px 14px; text-align: left; border-bottom: 1px solid #edf0f3; white-space: nowrap; }
+.activity-report th { color: #637285; background: #f7f9fb; font-size: 10px; text-transform: uppercase; letter-spacing: .04em; }
+.activity-report td { color: #37475a; font-variant-numeric: tabular-nums; }
+.activity-report tbody tr:last-child td { border-bottom: 0; }
+.activity-report tbody tr.weekly-alert { background: #fff8e5; }
+.activity-report-empty { margin: 0; padding: 18px 19px; color: #748091; font-size: 13px; }
 .activity-alert-register li { display: grid; grid-template-columns: 130px 210px minmax(0, 1fr); align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; font-size: 12px; }
 .activity-alert-register li.alert-hours { background: #fff8e5; color: #785e00; }
 .activity-alert-register li.alert-confirmation { background: #fff0eb; color: #9c3925; }
 .activity-alert-register li time { font-variant-numeric: tabular-nums; }
 .activity-alert-register li span { color: #637285; }
-@media (max-width: 900px) { .activity-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 1100px) { .activity-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); } }\n@media (max-width: 700px) { .activity-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 620px) { .activity-page { padding: 22px 12px 35px; } .activity-header { align-items: flex-start; } .activity-month-controls { width: 100%; } .activity-month-controls strong { flex: 1; } .activity-stats { grid-template-columns: 1fr 1fr; gap: 8px; } .activity-stats article { padding: 13px; } .activity-stats strong { font-size: 23px; } .activity-weekdays > div { padding: 9px 2px; text-align: center; font-size: 9px; } .activity-day { min-height: 78px; padding: 7px 5px; gap: 5px; } .activity-day strong { font-size: 13px; } .activity-day small { font-size: 9px; } .activity-alert-register li { grid-template-columns: 1fr; gap: 4px; } }
