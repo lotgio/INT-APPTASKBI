@@ -14,8 +14,8 @@ def main():
     load_dotenv()
     account = os.getenv("AZURE_ACTIVITY_STORAGE_ACCOUNT") or os.getenv("AZURE_STORAGE_ACCOUNT")
     key = os.getenv("AZURE_ACTIVITY_STORAGE_KEY") or os.getenv("AZURE_STORAGE_KEY")
-    container = os.getenv("AZURE_ACTIVITY_STORAGE_CONTAINER", "biinteff")
-    blob = os.getenv("AZURE_ACTIVITY_STORAGE_BLOB", "parquet-files/SQLSERVER1_ZeroDownTimeDB_AttivitaGiornaliere.parquet")
+    container = os.getenv("AZURE_ACTIVITY_STORAGE_CONTAINER", "parquet-files")
+    blob = os.getenv("AZURE_ACTIVITY_STORAGE_BLOB", "SQLSERVER1_ZeroDownTimeDB_AttivitaGiornaliere.parquet")
     if not account or not key:
         raise ValueError("Missing AZURE_STORAGE_ACCOUNT or AZURE_STORAGE_KEY")
 

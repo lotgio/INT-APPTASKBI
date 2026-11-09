@@ -49,8 +49,8 @@ jobs:
           AZURE_STORAGE_BLOB=${{ secrets.AZURE_STORAGE_BLOB }}
           AZURE_ACTIVITY_STORAGE_ACCOUNT=${{ secrets.AZURE_ACTIVITY_STORAGE_ACCOUNT || secrets.AZURE_STORAGE_ACCOUNT }}
           AZURE_ACTIVITY_STORAGE_KEY=${{ secrets.AZURE_ACTIVITY_STORAGE_KEY || secrets.AZURE_STORAGE_KEY }}
-          AZURE_ACTIVITY_STORAGE_CONTAINER=${{ secrets.AZURE_ACTIVITY_STORAGE_CONTAINER || 'biinteff' }}
-          AZURE_ACTIVITY_STORAGE_BLOB=${{ secrets.AZURE_ACTIVITY_STORAGE_BLOB || 'parquet-files/SQLSERVER1_ZeroDownTimeDB_AttivitaGiornaliere.parquet' }}
+          AZURE_ACTIVITY_STORAGE_CONTAINER=${{ secrets.AZURE_ACTIVITY_STORAGE_CONTAINER || 'parquet-files' }}
+          AZURE_ACTIVITY_STORAGE_BLOB=${{ secrets.AZURE_ACTIVITY_STORAGE_BLOB || 'SQLSERVER1_ZeroDownTimeDB_AttivitaGiornaliere.parquet' }}
           CRM_SQL_SERVER=${{ secrets.CRM_SQL_SERVER }}
           CRM_SQL_DATABASE=${{ secrets.CRM_SQL_DATABASE }}
           CRM_SQL_USER=${{ secrets.CRM_SQL_USER }}
