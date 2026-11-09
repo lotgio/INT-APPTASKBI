@@ -20,6 +20,9 @@ FIELD_CANDIDATES = {
     "logged_minutes": ["minutiloggati", "loggedminutes"],
     "confirmed_minutes": ["minuticonfermati", "confirmedminutes"],
     "unconfirmed_minutes": ["minutinonconfermati", "unconfirmedminutes"],
+    "job_code": ["codicecommessa", "commessacodice", "numerocommessa", "jobno", "jobnumber", "jobcode", "job"],
+    "job_name": ["descrizionecommessa", "nomecommessa", "commessadescrizione", "jobname", "jobdescription", "description"],
+    "activity_name": ["descrizioneattivita", "nomeattivita", "attivita", "activitydescription", "activityname", "taskdescription"],
 }
 
 
@@ -63,6 +66,20 @@ def main():
         raise ValueError(f"Colonne necessarie non individuate; campi trovati: {list(frame.columns)}")
 
     daily = frame[[date_field, person_field]].copy()
+    detail_fields = {
+        "Codice commessa": fields.get("job_code"),
+        "Nome commessa": fields.get("job_name"),
+        "Dettaglio attività": fields.get("activity_name"),
+    }
+    for output_name, source in detail_fields.items():
+        daily[output_name] = frame[source].fillna("").astype(str).str.strip() if source else ""
+
+    code = daily["Codice commessa"].str.upper()
+    name = daily["Nome commessa"].str.upper()
+    activity = daily["Dettaglio attività"].str.upper()
+    daily["Tipo attività"] = "Non COIG"
+    daily.loc[code.str.startswith("COIG") | name.str.startswith("COIG") | activity.str.startswith("COIG"), "Tipo attività"] = "COIG"
+
     output_fields = {
         "hours": "Ore Loggate",
         "confirmed_hours": "Ore Confermate",
@@ -86,7 +103,9 @@ def main():
 
     daily = daily.dropna(subset=[date_field, person_field])
     sum_columns = list(output_fields.values())
-    daily = daily.groupby([date_field, person_field], as_index=False, dropna=True)[sum_columns].sum()
+    detail_columns = [*detail_fields.keys(), "Tipo attività"]
+    group_columns = [date_field, person_field, *detail_columns]
+    daily = daily.groupby(group_columns, as_index=False, dropna=True)[sum_columns].sum()
     daily = daily.rename(columns={date_field: "Data", person_field: "Componente"})
     records = daily.astype(object).where(pd.notna(daily), None).to_dict(orient="records")
     target = Path("public/activity-logs.json")
