@@ -6,7 +6,7 @@ type Row = Record<string, unknown>;
 type FieldKind = "date" | "person" | "hours";
 const CANDIDATES: Record<FieldKind, string[]> = {
   date: ["data", "giorno", "postingdate", "workdate", "activitydate", "date"],
-  person: ["risorsa", "nome", "nominativo", "dipendente", "utente", "resource", "resourcename", "employeename", "person", "member"],
+  person: ["componente", "persona", "risorsa", "nome", "nominativo", "dipendente", "utente", "resource", "resourcename", "employeename", "person", "member"],
   hours: ["ore", "oreloggate", "durata", "oreconsuntivate", "hours", "loggedhours", "quantity", "workinghours", "time"]
 };
 function normalize(value: string) { return value.toLowerCase().replace(/[^a-z0-9]/g, ""); }
