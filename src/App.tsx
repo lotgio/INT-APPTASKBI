@@ -11,6 +11,7 @@ import TaskFromJobModal from "./TaskFromJobModal";
 import TaskResourceViewPage from "./TaskResourceViewPage";
 import TodoPage from "./TodoPage";
 import JobProgressPage from "./JobProgressPage";
+import ActivityCalendarPage from "./ActivityCalendarPage";
 import "./App.css";
 
 interface Job {
@@ -29,7 +30,7 @@ interface Job {
 }
 
 export default function App() {
-  const [page, setPage] = useState<"create" | "team" | "manage" | "database" | "stats" | "jobs" | "todo" | "job-progress">("manage");
+  const [page, setPage] = useState<"create" | "team" | "manage" | "database" | "stats" | "jobs" | "todo" | "job-progress" | "activity-calendar">("manage");
   const [tasks, setTasks] = useState<Task[]>([]);
   const [todos, setTodos] = useState<TodoItem[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
@@ -187,6 +188,20 @@ export default function App() {
           Avanzamento
         </button>
         <button
+          onClick={() => setPage("activity-calendar")}
+          style={{
+            padding: "8px 16px",
+            backgroundColor: page === "activity-calendar" ? "#0f172a" : "white",
+            color: page === "activity-calendar" ? "white" : "#0f172a",
+            border: "1px solid #ccc",
+            borderRadius: "4px",
+            cursor: "pointer",
+            fontSize: "14px",
+          }}
+        >
+          Consuntivazione
+        </button>
+        <button
           onClick={() => setPage("team")}
           style={{
             padding: "8px 16px",
@@ -240,6 +255,8 @@ export default function App() {
             setSelectedJob(job);
           }}
         />
+      ) : page === "activity-calendar" ? (
+        <ActivityCalendarPage />
       ) : page === "manage" ? (
         <TaskManagePage
           tasks={tasks}

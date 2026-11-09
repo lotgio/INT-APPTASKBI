@@ -18,6 +18,13 @@ const JOBS_REMOTE_URL = ((import.meta as any)?.env?.VITE_JOBS_URL || "").trim();
 const BASE_URL = ((import.meta as any)?.env?.BASE_URL || "/") as string;
 let jobsCache: any[] | null = null;
 
+export async function getActivityLogs(): Promise<Record<string, unknown>[]> {
+  const response = await fetch(`${BASE_URL}activity-logs.json`, { cache: "no-store" });
+  if (!response.ok) throw new Error(`Consuntivazioni non disponibili (${response.status})`);
+  const payload = await response.json();
+  return Array.isArray(payload) ? payload : [];
+}
+
 function getJobsSourceUrl(): string {
   return JOBS_REMOTE_URL || "./jobs.json";
 }
