@@ -231,16 +231,16 @@ export default function ActivityCalendarPage() {
           <label>Componente<select value={selectedPerson} onChange={(event) => setSelectedPerson(event.target.value)}>{people.map((name) => <option key={name} value={name}>{name}</option>)}</select></label>
         </section>
         <section className="activity-stats">
-          <article><span>Giornate lavorative</span><strong>{completeWorkdayKeys.length}</strong><small>Giorni trascorsi nel periodo</small></article>
+          <article><span>Giornate lavorative concluse</span><strong>{completeWorkdayKeys.length}</strong><small>Giorno corrente escluso</small></article>
           <article><span>Giornate ≥ 8 ore</span><strong className="activity-green">{compliant} / {completeWorkdayKeys.length}</strong><small>{complianceRate.toLocaleString("it-IT", { maximumFractionDigits: 0 })}% di copertura</small></article>
-          <article><span>Ore loggate</span><strong>{formatHours(total.logged)}</strong><small>{selectedPerson} · {monthName} · giorni lavorativi</small></article>
-          <article><span>Ore confermate</span><strong className="activity-green">{formatHours(total.confirmed)}</strong><small>Solo giorni lavorativi</small></article>
+          <article><span>Ore loggate nel mese</span><strong>{formatHours(total.logged)}</strong><small>{selectedPerson} · include le ore di oggi</small></article>
+          <article><span>Ore confermate nel mese</span><strong className="activity-green">{formatHours(total.confirmed)}</strong><small>Solo giorni lavorativi</small></article>
           <article><span>Percentuale confermata</span><strong>{confirmationRate.toLocaleString("it-IT", { maximumFractionDigits: 0 })}%</strong><small>{formatHours(total.unconfirmed)}h ancora non confermate</small></article>
-          <article><span>Alert aperti</span><strong className={alerts.length ? "activity-red" : "activity-green"}>{alerts.length}</strong><small>{below} giornate sotto le 8 ore</small></article>
+          <article><span>Alert aperti</span><strong className={alerts.length ? "activity-red" : "activity-green"}>{alerts.length}</strong><small>Dal 1° novembre 2026 · {below} giornate sotto 8h</small></article>
         </section>
 
         <section className="activity-report">
-          <header><div><h2>Report settimanale</h2><p>{selectedPerson} · {monthName} · giorni lavorativi trascorsi</p></div><span>Obiettivo giornaliero: 8h</span></header>
+          <header><div><h2>Report settimanale</h2><p>{selectedPerson} · {monthName} · giornate concluse, oggi escluso</p></div><span>Obiettivo giornaliero: 8h</span></header>
           {weeklyRows.length === 0 ? <p className="activity-report-empty">Nessun giorno lavorativo trascorso nel periodo selezionato.</p> :
             <div className="activity-table-wrap"><table>
               <thead><tr><th>Settimana</th><th>Giorni</th><th>Giornate ≥ 8h</th><th>Ore loggate / attese</th><th>Ore confermate</th><th>Tasso conferma</th><th>Alert</th></tr></thead>
