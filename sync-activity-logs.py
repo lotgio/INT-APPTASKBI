@@ -13,12 +13,12 @@ FIELD_CANDIDATES = {
     "date": ["data", "giorno", "postingdate", "workdate", "activitydate", "date"],
     "person": ["risorsa", "nome", "nominativo", "dipendente", "utente", "resource", "resourcename", "employeename", "person", "member", "persona"],
     "hours": ["oreloggate", "ore", "durata", "oreconsuntivate", "hours", "loggedhours", "quantity", "workinghours", "time"],
-    "confirmed_hours": ["oreflagconfirmeddb", "oreconfermate", "confirmedhours"],
+    "confirmed_hours": ["oreconfermate", "confirmedhours"],
     "unconfirmed_hours": ["orenonconfermate", "unconfirmedhours"],
     "registrations": ["numeroregistrazioni", "registrations", "registrationcount"],
-    "confirmed_registrations": ["registrazioniflagconfirmeddb", "registrazioniconfermate", "confirmedregistrations"],
+    "confirmed_registrations": ["registrazioniconfermate", "confirmedregistrations"],
     "logged_minutes": ["minutiloggati", "loggedminutes"],
-    "confirmed_minutes": ["minutiflagconfirmeddb", "minuticonfermati", "confirmedminutes"],
+    "confirmed_minutes": ["minuticonfermati", "confirmedminutes"],
     "unconfirmed_minutes": ["minutinonconfermati", "unconfirmedminutes"],
 }
 
@@ -55,23 +55,6 @@ def main():
     content.seek(0)
     frame = pd.read_parquet(content)
     print(f"Colonne origine parquet: {', '.join(str(column) for column in frame.columns)}")
-    status_field = next((column for column in frame.columns if normalize(column) == "statoattivita"), None)
-    if status_field:
-        date_column = next((column for column in frame.columns if normalize(column) == "dataattivita"), None)
-        person_column = next((column for column in frame.columns if normalize(column) == "persona"), None)
-        logged_column = next((column for column in frame.columns if normalize(column) == "oreloggate"), None)
-        confirmed_column = next((column for column in frame.columns if normalize(column) == "oreconfermate"), None)
-        flag_column = next((column for column in frame.columns if normalize(column) == "oreflagconfirmeddb"), None)
-        if date_column and person_column and logged_column and confirmed_column and flag_column:
-            probe_dates = pd.to_datetime(frame[date_column], errors="coerce")
-            probe = frame.loc[
-                (frame[person_column].astype(str).str.strip().str.casefold() == "lotta giorgia")
-                & (probe_dates >= pd.Timestamp("2026-10-26"))
-                & (probe_dates < pd.Timestamp("2026-11-10"))
-            ].copy()
-            probe["_probe_date"] = probe_dates.loc[probe.index].dt.strftime("%Y-%m-%d")
-            summary = probe.groupby(["_probe_date", status_field])[[logged_column, confirmed_column, flag_column]].sum(numeric_only=True)
-            print(f"Dettaglio verifica calendario (loggate / confermate / flag DB): {summary.to_dict(orient='index')}")
 
     date_field = find_field(frame.columns, "date")
     person_field = find_field(frame.columns, "person")
@@ -94,13 +77,12 @@ def main():
         source = fields.get(kind)
         daily[output_name] = pd.to_numeric(frame[source], errors="coerce").fillna(0) if source else 0
 
-    db_flag_hours = normalize(fields["confirmed_hours"]) == "oreflagconfirmeddb"
-    if db_flag_hours:
+    if not fields["unconfirmed_hours"]:
         daily["Ore Non Confermate"] = (daily["Ore Loggate"] - daily["Ore Confermate"]).clip(lower=0)
-        if fields["registrations"] and fields["confirmed_registrations"]:
-            daily["Registrazioni Confermate"] = pd.to_numeric(frame[fields["confirmed_registrations"]], errors="coerce").fillna(0)
-        if fields["logged_minutes"] and fields["confirmed_minutes"]:
-            daily["Minuti Non Confermati"] = (daily["Minuti Loggati"] - daily["Minuti Confermati"]).clip(lower=0)
+    if not fields["confirmed_registrations"] and fields["registrations"]:
+        daily["Registrazioni Confermate"] = 0
+    if not fields["unconfirmed_minutes"] and fields["logged_minutes"] and fields["confirmed_minutes"]:
+        daily["Minuti Non Confermati"] = (daily["Minuti Loggati"] - daily["Minuti Confermati"]).clip(lower=0)
 
     daily = daily.dropna(subset=[date_field, person_field])
     sum_columns = list(output_fields.values())
@@ -110,7 +92,7 @@ def main():
     target = Path("public/activity-logs.json")
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(json.dumps(records, ensure_ascii=False, default=str, allow_nan=False), encoding="utf-8")
-    print(f"Raggruppati {len(records)} totali giornalieri: data={date_field}, componente={person_field}, ore loggate={fields['hours']}, ore confermate={fields['confirmed_hours']}, criterio flag DB={db_flag_hours}")
+    print(f"Raggruppati {len(records)} totali giornalieri: data={date_field}, componente={person_field}, ore loggate={fields['hours']}, ore confermate={fields['confirmed_hours']}, non confermate={fields['unconfirmed_hours'] or 'calcolate come differenza'}")
     print(f"Sincronizzati i totali da {account}/{container}/{blob} in {target}")
 
 
