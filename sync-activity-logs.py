@@ -109,7 +109,7 @@ def main():
         daily["Minuti Non Confermati"] = (daily["Minuti Loggati"] - daily["Minuti Confermati"]).clip(lower=0)
 
     daily = daily.dropna(subset=[date_field, person_field])
-    daily = daily[daily[person_field].map(normalize).isin(TEAM_MEMBERS)]
+    daily = daily[daily[person_field].map(normalize).isin({normalize(name) for name in TEAM_MEMBERS})]
     sum_columns = list(output_fields.values())
     detail_columns = [*detail_fields.keys(), "Tipo attività"]
     group_columns = [date_field, person_field, *detail_columns]
