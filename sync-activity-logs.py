@@ -2,12 +2,18 @@
 """Download daily activity Parquet and prepare the static Pages data file."""
 import json
 import os
+import unicodedata
 from io import BytesIO
 from pathlib import Path
 
 import pandas as pd
 from azure.storage.blob import BlobServiceClient
 from dotenv import load_dotenv
+
+TEAM_MEMBERS = {
+    "lotta giorgia", "favero matteo", "stocco alberto", "vita anna",
+    "mason mauro", "padovan matteo", "micheletto nicola",
+}
 
 FIELD_CANDIDATES = {
     "date": ["data", "giorno", "postingdate", "workdate", "activitydate", "date"],
@@ -27,7 +33,8 @@ FIELD_CANDIDATES = {
 
 
 def normalize(value):
-    return "".join(char for char in str(value).lower() if char.isalnum())
+    decomposed = unicodedata.normalize("NFD", str(value).casefold())
+    return "".join(char for char in decomposed if char.isalnum() and not unicodedata.combining(char))
 
 
 def find_field(columns, kind):
@@ -102,6 +109,7 @@ def main():
         daily["Minuti Non Confermati"] = (daily["Minuti Loggati"] - daily["Minuti Confermati"]).clip(lower=0)
 
     daily = daily.dropna(subset=[date_field, person_field])
+    daily = daily[daily[person_field].map(normalize).isin(TEAM_MEMBERS)]
     sum_columns = list(output_fields.values())
     detail_columns = [*detail_fields.keys(), "Tipo attività"]
     group_columns = [date_field, person_field, *detail_columns]
@@ -111,7 +119,8 @@ def main():
     target = Path("public/activity-logs.json")
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(json.dumps(records, ensure_ascii=False, default=str, allow_nan=False), encoding="utf-8")
-    print(f"Raggruppati {len(records)} totali giornalieri: data={date_field}, componente={person_field}, ore loggate={fields['hours']}, ore confermate={fields['confirmed_hours']}, non confermate={fields['unconfirmed_hours'] or 'calcolate come differenza'}")
+    print(f"Raggruppati {len(records)} totali per i 7 componenti selezionati: data={date_field}, componente={person_field}, commessa={fields['job_code'] or 'non disponibile'}, descrizione commessa={fields['job_name'] or 'non disponibile'}, attività={fields['activity_name'] or 'non disponibile'}")
+    print(f"Dimensione export consuntivazioni: {target.stat().st_size / (1024 * 1024):.1f} MB")
     print(f"Sincronizzati i totali da {account}/{container}/{blob} in {target}")
 
 
