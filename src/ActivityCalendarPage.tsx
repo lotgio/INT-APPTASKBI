@@ -188,21 +188,34 @@ export default function ActivityCalendarPage() {
     confirmed: sum.confirmed + day.confirmed,
     unconfirmed: sum.unconfirmed + day.unconfirmed
   }), { logged: 0, confirmed: 0, unconfirmed: 0 });
+  const plannedEntries = [...totals.entries()].filter(([day, value]) => day > todayKey && isWorkday(day) && value.logged > 0);
+  const plannedHours = plannedEntries.reduce((sum, [, value]) => sum + value.logged, 0);
   const complianceRate = completeWorkdayKeys.length ? compliant / completeWorkdayKeys.length * 100 : 0;
   const confirmationRate = total.logged ? total.confirmed / total.logged * 100 : 0;
-  const weeklyKpis = new Map<string, { workdays: number; completeDays: number; logged: number; confirmed: number; unconfirmed: number }>();
-  completeWorkdayKeys.forEach((day) => {
-    const week = mondayOfWeek(day);
-    const kpi = weeklyKpis.get(week) || { workdays: 0, completeDays: 0, logged: 0, confirmed: 0, unconfirmed: 0 };
-    const value = allTotals.get(day) || { logged: 0, confirmed: 0, unconfirmed: 0 };
-    kpi.workdays++;
-    if (value.logged >= DAILY_TARGET) kpi.completeDays++;
-    kpi.logged += value.logged;
-    kpi.confirmed += value.confirmed;
-    kpi.unconfirmed += value.unconfirmed;
-    weeklyKpis.set(week, kpi);
-  });
-  const weeklyRows = [...weeklyKpis.entries()].sort(([a], [b]) => a.localeCompare(b));
+  const weeklyKpis = new Map<string, { workdays: number; completeDays: number; logged: number; confirmed: number; unconfirmed: number; planned: number; plannedDays: number }>();
+  if (firstActivityDate) {
+    for (let day = 1; day <= monthDays; day++) {
+      const key = dateKey(month.getFullYear(), month.getMonth() + 1, day);
+      if (key < firstActivityDate || !isWorkday(key)) continue;
+      const week = mondayOfWeek(key);
+      const kpi = weeklyKpis.get(week) || { workdays: 0, completeDays: 0, logged: 0, confirmed: 0, unconfirmed: 0, planned: 0, plannedDays: 0 };
+      const value = allTotals.get(key) || { logged: 0, confirmed: 0, unconfirmed: 0 };
+      if (key < todayKey) {
+        kpi.workdays++;
+        if (value.logged >= DAILY_TARGET) kpi.completeDays++;
+        kpi.logged += value.logged;
+        kpi.confirmed += value.confirmed;
+        kpi.unconfirmed += value.unconfirmed;
+      } else if (key > todayKey && value.logged > 0) {
+        kpi.planned += value.logged;
+        kpi.plannedDays++;
+      }
+      weeklyKpis.set(week, kpi);
+    }
+  }
+  const weeklyRows = [...weeklyKpis.entries()]
+    .filter(([, kpi]) => kpi.workdays > 0 || kpi.planned > 0)
+    .sort(([a], [b]) => a.localeCompare(b));
   const firstWeekday = (month.getDay() + 6) % 7;
   const lastDay = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
   const slots: (number | null)[] = [...Array(firstWeekday).fill(null), ...Array.from({ length: lastDay }, (_, i) => i + 1)];
@@ -234,27 +247,29 @@ export default function ActivityCalendarPage() {
           <article><span>Giornate lavorative concluse</span><strong>{completeWorkdayKeys.length}</strong><small>Giorno corrente escluso</small></article>
           <article><span>Giornate ≥ 8 ore</span><strong className="activity-green">{compliant} / {completeWorkdayKeys.length}</strong><small>{complianceRate.toLocaleString("it-IT", { maximumFractionDigits: 0 })}% di copertura</small></article>
           <article><span>Ore loggate nel mese</span><strong>{formatHours(total.logged)}</strong><small>{selectedPerson} · include le ore di oggi</small></article>
+          <article><span>Ore pianificate</span><strong className="activity-planned-text">{formatHours(plannedHours)}</strong><small>{plannedEntries.length} giornate future lavorative</small></article>
           <article><span>Ore confermate nel mese</span><strong className="activity-green">{formatHours(total.confirmed)}</strong><small>Solo giorni lavorativi</small></article>
           <article><span>Percentuale confermata</span><strong>{confirmationRate.toLocaleString("it-IT", { maximumFractionDigits: 0 })}%</strong><small>{formatHours(total.unconfirmed)}h ancora non confermate</small></article>
           <article><span>Alert aperti</span><strong className={alerts.length ? "activity-red" : "activity-green"}>{alerts.length}</strong><small>Dal 1° novembre 2026 · {below} giornate sotto 8h</small></article>
         </section>
 
         <section className="activity-report">
-          <header><div><h2>Report settimanale</h2><p>{selectedPerson} · {monthName} · giornate concluse, oggi escluso</p></div><span>Obiettivo giornaliero: 8h</span></header>
+          <header><div><h2>Report settimanale</h2><p>{selectedPerson} · {monthName} · consuntivi dei giorni conclusi; piani successivi a oggi</p></div><span>Obiettivo giornaliero: 8h</span></header>
           {weeklyRows.length === 0 ? <p className="activity-report-empty">Nessun giorno lavorativo trascorso nel periodo selezionato.</p> :
             <div className="activity-table-wrap"><table>
-              <thead><tr><th>Settimana</th><th>Giorni</th><th>Giornate ≥ 8h</th><th>Ore loggate / attese</th><th>Ore confermate</th><th>Tasso conferma</th><th>Alert</th></tr></thead>
+              <thead><tr><th>Settimana</th><th>Giorni conclusi</th><th>Giornate ≥ 8h</th><th>Ore loggate / attese</th><th>Ore confermate</th><th>Ore pianificate</th><th>Tasso conferma</th><th>Alert</th></tr></thead>
               <tbody>{weeklyRows.map(([week, kpi]) => {
                 const weekAlerts = alerts.filter((alert) => alert.date >= week && alert.date <= addDays(week, 6)).length;
                 const expectedHours = kpi.workdays * DAILY_TARGET;
                 const weekConfirmationRate = kpi.logged ? kpi.confirmed / kpi.logged * 100 : 0;
                 return <tr key={week} className={weekAlerts ? "weekly-alert" : ""}>
                   <td>{formatDay(week)} – {formatDay(addDays(week, 4))}</td>
-                  <td>{kpi.workdays}</td>
-                  <td>{kpi.completeDays} / {kpi.workdays} ({(kpi.completeDays / kpi.workdays * 100).toLocaleString("it-IT", { maximumFractionDigits: 0 })}%)</td>
-                  <td>{formatHours(kpi.logged)} / {formatHours(expectedHours)}h</td>
-                  <td>{formatHours(kpi.confirmed)}h</td>
-                  <td>{weekConfirmationRate.toLocaleString("it-IT", { maximumFractionDigits: 0 })}%</td>
+                  <td>{kpi.workdays || "—"}</td>
+                  <td>{kpi.workdays ? `${kpi.completeDays} / ${kpi.workdays} (${(kpi.completeDays / kpi.workdays * 100).toLocaleString("it-IT", { maximumFractionDigits: 0 })}%)` : "—"}</td>
+                  <td>{kpi.workdays ? `${formatHours(kpi.logged)} / ${formatHours(expectedHours)}h` : "—"}</td>
+                  <td>{kpi.workdays ? `${formatHours(kpi.confirmed)}h` : "—"}</td>
+                  <td>{kpi.planned ? `${formatHours(kpi.planned)}h · ${kpi.plannedDays} gg` : "—"}</td>
+                  <td>{kpi.logged ? `${weekConfirmationRate.toLocaleString("it-IT", { maximumFractionDigits: 0 })}%` : "—"}</td>
                   <td>{weekAlerts || "—"}</td>
                 </tr>;
               })}</tbody>
@@ -282,14 +297,15 @@ export default function ActivityCalendarPage() {
             const holiday = holidayName(key);
             const workingDay = isWorkday(key);
             const dayAlerts = alerts.filter((alert) => alert.date === key);
-            const state = !workingDay ? "activity-nonworking" : dayAlerts.length ? "activity-anomaly" : value === undefined ? "activity-no-data" : value.confirmed >= DAILY_TARGET ? "activity-good" : value.logged >= DAILY_TARGET ? "activity-logged" : "activity-low";
+            const state = !workingDay ? "activity-nonworking" : dayAlerts.length ? "activity-anomaly" : key > todayKey ? (value && value.logged > 0 ? "activity-planned" : "activity-no-data") : value === undefined ? "activity-no-data" : value.confirmed >= DAILY_TARGET ? "activity-good" : value.logged >= DAILY_TARGET ? "activity-logged" : "activity-low";
             return <article key={key} className={`activity-day ${state}`} title={holiday || (!workingDay ? "Fine settimana — escluso dal conteggio" : "")}>
               <span>{day}</span>
-              {!workingDay ? <small>{holiday || "Weekend · escluso"}</small> : value === undefined ? <><small>{dayAlerts.some((alert) => alert.kind === "hours") ? "Nessun dato · 0h loggate" : "Nessun dato"}</small>{dayAlerts.length > 0 && <small className="activity-day-alert-label">Anomalia da verificare</small>}</> :
-                <><strong>{formatHours(value.logged)} h loggate</strong><small>{formatHours(value.confirmed)} h confermate</small><small>{formatHours(value.unconfirmed)} h non confermate</small>{dayAlerts.length > 0 && <small className="activity-day-alert-label">Anomalia da verificare</small>}</>}
+              {!workingDay ? <small>{holiday || "Weekend · escluso"}</small> : value === undefined || (key > todayKey && value.logged <= 0) ? <><small>{dayAlerts.some((alert) => alert.kind === "hours") ? "Nessun dato · 0h loggate" : key > todayKey ? "Nessun piano" : "Nessun dato"}</small>{dayAlerts.length > 0 && <small className="activity-day-alert-label">Anomalia da verificare</small>}</> :
+                key > todayKey ? <><strong>{formatHours(value.logged)} h pianificate</strong><small>Giornata futura lavorativa</small></> :
+                  <><strong>{formatHours(value.logged)} h loggate</strong><small>{formatHours(value.confirmed)} h confermate</small><small>{formatHours(value.unconfirmed)} h non confermate</small>{dayAlerts.length > 0 && <small className="activity-day-alert-label">Anomalia da verificare</small>}</>}
             </article>;
           })}</div>
-          <footer className="activity-legend"><span><i className="legend-good" /> Almeno 8 ore confermate</span><span><i className="legend-logged" /> Almeno 8 ore loggate, meno di 8 confermate</span><span><i className="legend-low" /> Meno di 8 ore loggate</span><span><i className="legend-anomaly" /> Anomalia / conferma scaduta</span><span><i className="legend-none" /> Weekend o festività esclusi</span></footer>
+          <footer className="activity-legend"><span><i className="legend-good" /> Almeno 8 ore confermate</span><span><i className="legend-logged" /> Almeno 8 ore loggate, meno di 8 confermate</span><span><i className="legend-planned" /> Ore pianificate dopo oggi</span><span><i className="legend-low" /> Meno di 8 ore loggate</span><span><i className="legend-anomaly" /> Anomalia / conferma scaduta</span><span><i className="legend-none" /> Weekend o festività esclusi</span></footer>
         </section>
       </>}
     </main>
