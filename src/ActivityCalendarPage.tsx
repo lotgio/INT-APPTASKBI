@@ -6,7 +6,8 @@ type Row = Record<string, unknown>;
 type TeamGroup = "BI" | "CRM";
 type DayTotals = { logged: number; confirmed: number; unconfirmed: number };
 type ActivityAlert = { id: string; date: string; kind: "hours" | "confirmation"; logged: number; confirmed: number };
-type JobDetail = { code: string; name: string; activity: string; kind: "COIG" | "Non COIG"; logged: number; confirmed: number };
+type JobDetail = { code: string; name: string; activity: string; customer: string; kind: "COIG" | "Non COIG"; logged: number; confirmed: number };
+type ActivitySummary = { label: string; logged: number; codes: Set<string> };
 const DAILY_TARGET = 8;
 const ALERT_START_DATE = "2026-11-01";
 const TEAM_MEMBERS: Record<TeamGroup, string[]> = {
@@ -151,10 +152,11 @@ export default function ActivityCalendarPage() {
       const code = String(row["Codice commessa"] ?? "").trim();
       const name = String(row["Nome commessa"] ?? "").trim();
       const activity = String(row["Dettaglio attività"] ?? "").trim();
+      const customer = String(row.Cliente ?? "").trim();
       const startsWithCoig = [code, name, activity].some((value) => /^COIG/i.test(value));
       const kind: JobDetail["kind"] = String(row["Tipo attività"] ?? "").toUpperCase() === "COIG" || startsWithCoig ? "COIG" : "Non COIG";
-      const key = [kind, code, name, activity].join("|");
-      const current = grouped.get(key) || { code, name, activity, kind, logged: 0, confirmed: 0 };
+      const key = [kind, code, name, activity, customer].join("|");
+      const current = grouped.get(key) || { code, name, activity, customer, kind, logged: 0, confirmed: 0 };
       current.logged += toHours(row["Ore Loggate"] ?? row.Ore);
       current.confirmed += toHours(row["Ore Confermate"]);
       grouped.set(key, current);
@@ -165,6 +167,34 @@ export default function ActivityCalendarPage() {
   const otherDetails = jobDetails.filter((item) => item.kind === "Non COIG");
   const coigHours = coigDetails.reduce((sum, item) => sum + item.logged, 0);
   const otherHours = otherDetails.reduce((sum, item) => sum + item.logged, 0);
+  const totalJobHours = coigHours + otherHours;
+  const coigShare = totalJobHours ? coigHours / totalJobHours * 100 : 0;
+  const otherShare = totalJobHours ? otherHours / totalJobHours * 100 : 0;
+  const internalActivitySummary = useMemo(() => {
+    const groups = new Map<string, ActivitySummary>();
+    coigDetails.forEach((item) => {
+      const label = item.activity || item.name || item.code || "Attività senza descrizione";
+      const current = groups.get(label) || { label, logged: 0, codes: new Set<string>() };
+      current.logged += item.logged;
+      if (item.code) current.codes.add(item.code);
+      groups.set(label, current);
+    });
+    return [...groups.values()].sort((a, b) => b.logged - a.logged);
+  }, [coigDetails]);
+  const clientSummary = useMemo(() => {
+    const groups = new Map<string, ActivitySummary>();
+    otherDetails.forEach((item) => {
+      const label = item.customer || "Cliente non disponibile";
+      const current = groups.get(label) || { label, logged: 0, codes: new Set<string>() };
+      current.logged += item.logged;
+      if (item.code) current.codes.add(item.code);
+      groups.set(label, current);
+    });
+    return [...groups.values()].sort((a, b) => b.logged - a.logged || a.label.localeCompare(b.label, "it"));
+  }, [otherDetails]);
+  const internalLead = internalActivitySummary[0];
+  const clientLead = clientSummary[0];
+  const balanceLabel = !totalJobHours ? "Nessuna ora registrata" : coigHours === otherHours ? "Ore interne ed esterne equivalenti" : coigHours > otherHours ? `Prevalgono le attività interne di ${formatHours(coigHours - otherHours)} h` : `Prevalgono le attività non COIG di ${formatHours(otherHours - coigHours)} h`;
 
   const alerts = useMemo(() => {
     if (!firstActivityDate) return [] as ActivityAlert[];
@@ -302,22 +332,44 @@ export default function ActivityCalendarPage() {
         </section>
 
         <section className="activity-report activity-job-report">
-          <header><div><h2>Dettaglio commesse</h2><p>{selectedPerson} · {monthName} · attività registrate fino a oggi</p></div><span>{jobDetails.length} voci</span></header>
-          <div className="activity-job-kpis">
-            <article><span>Attività interne · codici COIG</span><strong>{formatHours(coigHours)} h</strong><small>{coigDetails.length} commesse o attività</small></article>
-            <article><span>Attività non COIG</span><strong>{formatHours(otherHours)} h</strong><small>{otherDetails.length} commesse o attività</small></article>
+          <header><div><h2>Dove si concentrano le attività</h2><p>{selectedPerson} · {monthName} · ore registrate fino a oggi</p></div><span>{jobDetails.length} voci di dettaglio</span></header>
+          <div className="activity-analysis">
+            <div className="activity-balance-card">
+              <div className="activity-balance-heading"><div><strong>Ripartizione delle ore</strong><small>{balanceLabel}</small></div><span>{formatHours(totalJobHours)} h totali</span></div>
+              <div className="activity-balance-track" role="img" aria-label={`Attività interne ${coigShare.toFixed(0)}%, attività non COIG ${otherShare.toFixed(0)}%`}>
+                <span className="activity-balance-coig" style={{ width: `${coigShare}%` }} />
+                <span className="activity-balance-external" style={{ width: `${otherShare}%` }} />
+              </div>
+              <div className="activity-balance-legend"><span><i className="activity-dot coig" />Interne COIG <strong>{formatHours(coigHours)} h · {coigShare.toLocaleString("it-IT", { maximumFractionDigits: 0 })}%</strong></span><span><i className="activity-dot external" />Non COIG <strong>{formatHours(otherHours)} h · {otherShare.toLocaleString("it-IT", { maximumFractionDigits: 0 })}%</strong></span></div>
+            </div>
+            <div className="activity-concentration-grid">
+              <section className="activity-chart-card">
+                <header><div><h3>Attività interne · COIG</h3><p>Ripartizione per attività</p></div><span>{internalActivitySummary.length} attività</span></header>
+                {internalActivitySummary.length === 0 ? <p className="activity-chart-empty">Nessuna attività interna nel periodo.</p> : <ol>{internalActivitySummary.slice(0, 7).map((item) => <li key={item.label}><div className="activity-chart-label"><span title={item.label}>{item.label}</span><strong>{formatHours(item.logged)} h <small>{coigHours ? (item.logged / coigHours * 100).toLocaleString("it-IT", { maximumFractionDigits: 0 }) : 0}%</small></strong></div><div className="activity-chart-track"><i className="coig" style={{ width: `${coigHours ? item.logged / coigHours * 100 : 0}%` }} /></div></li>)}</ol>}
+                {internalLead && <p className="activity-chart-note">Maggiore concentrazione: <strong>{internalLead.label}</strong> · {formatHours(internalLead.logged)} h</p>}
+              </section>
+              <section className="activity-chart-card">
+                <header><div><h3>Attività non COIG</h3><p>Raggruppate per cliente</p></div><span>{clientSummary.length} clienti</span></header>
+                {clientSummary.length === 0 ? <p className="activity-chart-empty">Nessuna attività non COIG nel periodo.</p> : <ol>{clientSummary.slice(0, 7).map((item) => <li key={item.label}><div className="activity-chart-label"><span title={item.label}>{item.label}</span><strong>{formatHours(item.logged)} h <small>{otherHours ? (item.logged / otherHours * 100).toLocaleString("it-IT", { maximumFractionDigits: 0 }) : 0}%</small></strong></div><div className="activity-chart-track"><i className="external" style={{ width: `${otherHours ? item.logged / otherHours * 100 : 0}%` }} /></div></li>)}</ol>}
+                {clientLead && <p className="activity-chart-note">Cliente con più ore: <strong>{clientLead.label}</strong> · {formatHours(clientLead.logged)} h su {clientLead.codes.size} commesse</p>}
+              </section>
+            </div>
           </div>
-          {jobDetails.length === 0 ? <p className="activity-report-empty">Nessuna commessa disponibile per il periodo selezionato.</p> :
-            <div className="activity-table-wrap"><table>
-              <thead><tr><th>Tipo</th><th>Codice commessa</th><th>Commessa / attività</th><th>Ore loggate</th><th>Ore confermate</th></tr></thead>
-              <tbody>{jobDetails.map((item, index) => <tr key={`${item.kind}|${item.code}|${item.name}|${item.activity}|${index}`}>
-                <td><span className={item.kind === "COIG" ? "activity-job-badge coig" : "activity-job-badge"}>{item.kind === "COIG" ? "Interna · COIG" : "Non COIG"}</span></td>
-                <td>{item.code || "—"}</td>
-                <td>{[item.name, item.activity].filter(Boolean).join(" · ") || "Descrizione non disponibile"}</td>
-                <td>{formatHours(item.logged)} h</td>
-                <td>{formatHours(item.confirmed)} h</td>
-              </tr>)}</tbody>
-            </table></div>}
+          <details className="activity-job-details">
+            <summary>Mostra dettaglio per commessa e attività ({jobDetails.length})</summary>
+            {jobDetails.length === 0 ? <p className="activity-report-empty">Nessuna commessa disponibile per il periodo selezionato.</p> :
+              <div className="activity-table-wrap"><table>
+                <thead><tr><th>Tipo</th><th>Cliente</th><th>Codice commessa</th><th>Commessa / attività</th><th>Ore loggate</th><th>Ore confermate</th></tr></thead>
+                <tbody>{jobDetails.map((item, index) => <tr key={`${item.kind}|${item.code}|${item.name}|${item.activity}|${index}`}>
+                  <td><span className={item.kind === "COIG" ? "activity-job-badge coig" : "activity-job-badge"}>{item.kind === "COIG" ? "Interna · COIG" : "Non COIG"}</span></td>
+                  <td>{item.kind === "COIG" ? "Interna" : item.customer || "Cliente non disponibile"}</td>
+                  <td>{item.code || "—"}</td>
+                  <td>{[item.name, item.activity].filter(Boolean).join(" · ") || "Descrizione non disponibile"}</td>
+                  <td>{formatHours(item.logged)} h</td>
+                  <td>{formatHours(item.confirmed)} h</td>
+                </tr>)}</tbody>
+              </table></div>}
+          </details>
         </section>
 
         <section className="activity-alert-register" aria-live="polite">
