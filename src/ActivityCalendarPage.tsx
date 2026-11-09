@@ -108,10 +108,10 @@ export default function ActivityCalendarPage() {
             if (day === null) return <div className="activity-day activity-empty" key={`empty-${index}`} />;
             const dateKey = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
             const value = totals.get(dateKey);
-            const state = value === undefined ? "activity-no-data" : value.logged >= 8 ? "activity-good" : "activity-low";
+            const state = value === undefined ? "activity-no-data" : value.confirmed >= 8 ? "activity-good" : value.logged >= 8 ? "activity-logged" : "activity-low";
             return <article key={dateKey} className={`activity-day ${state}`}><span>{day}</span>{value === undefined ? <small>Nessun dato</small> : <><strong>{formatHours(value.logged)} h loggate</strong><small>{formatHours(value.confirmed)} h confermate</small><small>{formatHours(value.unconfirmed)} h non confermate</small></>}</article>;
           })}</div>
-          <footer className="activity-legend"><span><i className="legend-good" /> Almeno 8 ore loggate</span><span><i className="legend-low" /> Meno di 8 ore loggate</span><span><i className="legend-none" /> Nessun dato</span></footer>
+          <footer className="activity-legend"><span><i className="legend-good" /> Almeno 8 ore confermate</span><span><i className="legend-logged" /> Almeno 8 ore loggate, meno di 8 confermate</span><span><i className="legend-low" /> Meno di 8 ore loggate</span><span><i className="legend-none" /> Nessun dato</span></footer>
         </section>
       </>}
     </main>
