@@ -55,6 +55,15 @@ def main():
     content.seek(0)
     frame = pd.read_parquet(content)
     print(f"Colonne origine parquet: {', '.join(str(column) for column in frame.columns)}")
+    status_field = next((column for column in frame.columns if normalize(column) == "statoattivita"), None)
+    if status_field:
+        date_column = next((column for column in frame.columns if normalize(column) == "dataattivita"), None)
+        logged_column = next((column for column in frame.columns if normalize(column) == "oreloggate"), None)
+        confirmed_column = next((column for column in frame.columns if normalize(column) == "oreflagconfirmeddb"), None)
+        if date_column and logged_column and confirmed_column:
+            month_rows = frame.loc[pd.to_datetime(frame[date_column], errors="coerce").dt.strftime("%Y-%m") == "2026-11"]
+            probe = month_rows.groupby(status_field)[[logged_column, confirmed_column]].sum(numeric_only=True)
+            print(f"Riepilogo novembre per Stato Attivita (ore loggate / flag DB): {probe.to_dict(orient='index')}")
 
     date_field = find_field(frame.columns, "date")
     person_field = find_field(frame.columns, "person")
