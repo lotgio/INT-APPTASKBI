@@ -20,9 +20,9 @@ FIELD_CANDIDATES = {
     "logged_minutes": ["minutiloggati", "loggedminutes"],
     "confirmed_minutes": ["minuticonfermati", "confirmedminutes"],
     "unconfirmed_minutes": ["minutinonconfermati", "unconfirmedminutes"],
-    "job_code": ["codicecommessa", "commessacodice", "numerocommessa", "jobno", "jobnumber", "jobcode", "job"],
-    "job_name": ["descrizionecommessa", "nomecommessa", "commessadescrizione", "jobname", "jobdescription", "description"],
-    "activity_name": ["descrizioneattivita", "nomeattivita", "attivita", "activitydescription", "activityname", "taskdescription"],
+    "job_code": ["commessa", "codicecommessa", "commessacodice", "numerocommessa", "jobno", "jobnumber", "jobcode", "job"],
+    "job_name": ["descrizionecommessa", "nomecommessa", "commessadescrizione", "descrizioneriga", "jobname", "jobdescription", "description"],
+    "activity_name": ["descrizionetask", "descrizioneattivita", "nomeattivita", "activitydescription", "activityname", "taskdescription", "task"],
 }
 
 
