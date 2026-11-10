@@ -129,6 +129,17 @@ def main():
     detail_frame = pd.read_parquet(detail_content)
     print(f"Colonne dettaglio CRM: {', '.join(str(column) for column in detail_frame.columns)}")
 
+    # Diagnostica di sync: confronta il calendario di Vita Anna nei due parquet
+    # per individuare pianificazioni future presenti solo nel dettaglio.
+    for source_name, source_frame in (("riepilogo ZDT", frame), ("dettaglio CRM", detail_frame)):
+        source_date = find_field(source_frame.columns, "date")
+        source_person = find_field(source_frame.columns, "person")
+        if source_date and source_person:
+            source_mask = source_frame[source_person].map(normalize) == normalize("Vita Anna")
+            source_days = pd.to_datetime(source_frame.loc[source_mask, source_date], errors="coerce", dayfirst=True)
+            november_days = sorted(source_days[source_days.dt.strftime("%Y-%m") == "2026-11"].dt.strftime("%Y-%m-%d").dropna().unique())
+            print(f"Diagnostica Vita Anna / {source_name}: {len(november_days)} date di novembre; ultima={november_days[-1] if november_days else 'nessuna'}; date={', '.join(november_days)}")
+
     date_field = find_field(frame.columns, "date")
     person_field = find_field(frame.columns, "person")
     fields = {kind: find_field(frame.columns, kind) for kind in FIELD_CANDIDATES if kind not in ("date", "person")}
