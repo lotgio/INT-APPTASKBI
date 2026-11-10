@@ -131,3 +131,40 @@
 .activity-job-details table { min-width: 900px; }
 @media (max-width: 780px) { .activity-concentration-grid { grid-template-columns: 1fr; } }
 @media (max-width: 620px) { .activity-analysis { padding: 10px; } .activity-balance-card { padding: 12px; } .activity-balance-legend { display: grid; } }
+
+
+.activity-day-clickable { cursor: pointer; transition: box-shadow .15s ease, transform .15s ease; }
+.activity-day-clickable:hover { box-shadow: inset 0 0 0 2px #596b81, 0 3px 10px #26384c24; transform: translateY(-1px); }
+.activity-day-clickable:focus-visible { outline: 3px solid #294b79; outline-offset: -3px; }
+.activity-day-modal-backdrop { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 20px; background: rgba(14,24,38,.45); }
+.activity-day-modal { width: min(680px, 100%); max-height: min(82vh, 760px); overflow: hidden; display: flex; flex-direction: column; border: 1px solid #dce3eb; border-radius: 14px; background: #fff; box-shadow: 0 24px 70px #1725363d; }
+.activity-day-modal > header { display: flex; justify-content: space-between; gap: 16px; padding: 18px 20px; border-bottom: 1px solid #e8edf2; }
+.activity-day-modal > header div { display: grid; gap: 4px; }
+.activity-day-modal > header p { margin: 0; color: #78889a; font-size: 11px; }
+.activity-day-modal h2 { margin: 0; color: #1e2c3b; font-size: 18px; }
+.activity-day-modal > header small { color: #718096; font-size: 11px; }
+.activity-day-modal-close { width: 34px; height: 34px; border: 1px solid #dce3eb; border-radius: 8px; background: white; color: #526277; font-size: 22px; cursor: pointer; }
+.activity-day-modal-groups { overflow: auto; padding: 14px 20px; display: grid; gap: 14px; }
+.activity-day-modal-groups > section { border: 1px solid #e8edf2; border-radius: 10px; overflow: hidden; }
+.activity-day-modal-groups > section > header { display: flex; justify-content: space-between; align-items: center; padding: 11px 13px; background: #f7f9fb; }
+.activity-day-modal h3 { margin: 0; color: #314256; font-size: 13px; }
+.activity-day-modal-groups > section > header strong { font-size: 12px; }
+.activity-day-modal ul { margin: 0; padding: 0; list-style: none; }
+.activity-day-modal li { display: flex; justify-content: space-between; gap: 16px; padding: 11px 13px; border-top: 1px solid #edf0f3; }
+.activity-day-modal-job-name { display: grid; gap: 4px; min-width: 0; }
+.activity-day-modal-job-name strong { color: #314256; font-size: 11px; }
+.activity-day-modal-job-name span { color: #738195; font-size: 10px; }
+.activity-day-modal-job-hours { display: grid; align-content: center; text-align: right; white-space: nowrap; }
+.activity-day-modal-job-hours strong { font-size: 11px; }
+.activity-day-modal-job-hours small { color: #78889a; font-size: 10px; }
+.activity-day-modal > footer { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; border-top: 1px solid #e8edf2; background: #fafbfd; color: #778597; font-size: 10px; }
+.activity-day-modal > footer button { border: 0; border-radius: 7px; padding: 8px 13px; background: #182433; color: white; font-size: 11px; cursor: pointer; }
+.activity-day-modal-empty { padding: 16px 20px; color: #748091; font-size: 12px; }
+@media (max-width: 620px) {
+  .activity-day-modal-backdrop { padding: 10px; }
+  .activity-day-modal { max-height: 88vh; }
+  .activity-day-modal > header, .activity-day-modal > footer { padding: 14px; }
+  .activity-day-modal-groups { padding: 10px; }
+  .activity-day-modal li { align-items: flex-start; padding: 10px; }
+  .activity-day-modal-job-name span { line-height: 1.4; }
+}
