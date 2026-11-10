@@ -304,6 +304,8 @@ def main():
     for index, row in daily.iterrows():
         match, status = resolve_job(row)
         daily.at[index, "Esito valorizzazione"] = status
+        if match:
+            daily.at[index, "Prezzo unitario NAV"] = match["price"]
         detail_key = (
             detail_day(row.get(date_field)),
             normalize(row.get(person_field, "")),
