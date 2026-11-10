@@ -113,7 +113,7 @@ export default function RevenueEstimate({ records, person, monthPrefix, todayKey
               <tbody>{lines.map((line, index) => <tr key={`${line.customer}|${line.code}|${line.activity}|${index}`} className={line.match === "Valorizzata" ? "" : "revenue-unresolved"}>
                 <td><span className={line.match === "Valorizzata" ? "revenue-badge" : "revenue-badge unresolved"}>{line.match}</span>{line.source !== "—" && <small className="revenue-source">{line.source}</small>}</td>
                 <td>{line.customer}</td><td><strong>{line.code || "—"}</strong><small>{[line.job, line.activity].filter(Boolean).join(" · ")}</small></td>
-                <td>{fmt(line.logged)} h</td><td>{fmt(line.billable)} h</td><td>{line.unitPrice ? eur(line.unitPrice) : "—"}</td><td><strong>{line.match === "Valorizzata" ? eur(line.revenue) : "—"}</strong></td>
+                <td>{fmt(line.logged)} h</td><td>{fmt(line.billable)} h</td><td>{line.match === "Valorizzata" ? eur(line.unitPrice) : "—"}</td><td><strong>{line.match === "Valorizzata" ? eur(line.revenue) : "—"}</strong></td>
               </tr>)}</tbody>
             </table></div>}
         </section>
