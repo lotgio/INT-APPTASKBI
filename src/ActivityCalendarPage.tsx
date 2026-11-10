@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { getActivityLogs } from "./api";
 import RevenueEstimate from "./RevenueEstimate";
+import { TEAM_MEMBERS, type TeamGroup } from "./teamMembers";
 import "./ActivityCalendarPage.css";
 
 type Row = Record<string, unknown>;
-type TeamGroup = "BI" | "CRM" | "DEV";
 type DayTotals = { logged: number; confirmed: number; unconfirmed: number };
 type ActivityAlert = { id: string; date: string; kind: "hours" | "confirmation"; logged: number; confirmed: number };
 type JobDetail = { code: string; name: string; activity: string; customer: string; kind: "COIG" | "Non COIG"; logged: number; confirmed: number };
@@ -12,11 +12,6 @@ type ClientDayGroup = { customer: string; logged: number; confirmed: number; job
 type ActivitySummary = { label: string; logged: number; codes: Set<string> };
 const DAILY_TARGET = 8;
 const ALERT_START_DATE = "2026-11-01";
-const TEAM_MEMBERS: Record<TeamGroup, string[]> = {
-  BI: ["Lotta Giorgia", "Favero Matteo", "Stocco Alberto", "Vita Anna"],
-  CRM: ["Mason Mauro", "Padovan Matteo", "Micheletto Nicola"],
-  DEV: ["Albanese Lorenzo", "Brigo Matteo", "Brotto Fabio", "Cecchin Chiara", "Cestaro Luca", "Dian Enrico", "Luise Alessandro", "Marino Daniele", "Verzotto Maria", "Rampazzo Lisa", "Sarto Michele", "Omodei Cesare"]
-};
 const FIXED_HOLIDAYS: Record<string, string> = {
   "01-01": "Capodanno",
   "01-06": "Epifania",
@@ -139,7 +134,7 @@ export default function ActivityCalendarPage() {
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [selectedCalendarDay]);
 
-  const people = TEAM_MEMBERS[group];
+  const people = TEAM_MEMBERS[group] ?? TEAM_MEMBERS.BI;
   const { day: todayKey, hour: romeHour } = romeDateTime(now);
   const allTotals = useMemo(() => {
     const result = new Map<string, DayTotals>();
