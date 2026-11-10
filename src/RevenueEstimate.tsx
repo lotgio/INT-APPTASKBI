@@ -79,17 +79,34 @@ export default function RevenueEstimate({ records, person, group, groupMembers, 
   const economicTotals = useMemo(() => {
     const year = monthPrefix.slice(0, 4);
     const members = new Set(resolvedGroupMembers.map(norm));
-    let personYear = 0;
-    let groupMonth = 0;
-    let groupYear = 0;
+    const empty = () => ({ confirmed: 0, planned: 0, pending: 0 });
+    const personYear = empty();
+    const groupMonth = empty();
+    const groupYear = empty();
     records.forEach((row) => {
       const day = String(row.Data ?? "").slice(0, 10);
-      if (!day || day > todayKey || day.slice(0, 4) !== year) return;
+      if (!day || day.slice(0, 4) !== year) return;
+      const isPerson = norm(row.Componente) === norm(person);
+      const isGroup = members.has(norm(row.Componente));
+      if (!isPerson && !isGroup) return;
+
+      const logged = hours(row["Ore Loggate"] ?? row.Ore);
+      const price = number(row["Prezzo unitario NAV"]);
       const revenue = number(row["Stima fatturato"]);
-      if (norm(row.Componente) === norm(person)) personYear += revenue;
-      if (members.has(norm(row.Componente))) {
-        groupYear += revenue;
-        if (day.startsWith(monthPrefix)) groupMonth += revenue;
+      const confirmed = number(row["Stima fatturato confermato"]);
+      const pending = number(row["Stima fatturato da confermare"]);
+      const bucket = day > todayKey
+        ? { confirmed: 0, planned: logged * price || revenue, pending: 0 }
+        : { confirmed, planned: 0, pending };
+      const add = (target: typeof personYear) => {
+        target.confirmed += bucket.confirmed;
+        target.planned += bucket.planned;
+        target.pending += bucket.pending;
+      };
+      if (isPerson) add(personYear);
+      if (isGroup) {
+        add(groupYear);
+        if (day.startsWith(monthPrefix)) add(groupMonth);
       }
     });
     return { year, personYear, groupMonth, groupYear };
@@ -128,11 +145,22 @@ export default function RevenueEstimate({ records, person, group, groupMembers, 
         <article><span>Da verificare</span><strong className={unresolved.length ? "revenue-warning" : ""}>{unresolved.length}</strong><small>Commesse senza abbinamento o prezzo univoco</small></article>
       </div>
       <section className="revenue-totalizers" aria-label="Totalizzatori economici">
-        <div className="revenue-totalizers-title"><h3>Totalizzatori economici</h3><span>Stime registrate fino a oggi · {economicTotals.year}</span></div>
+        <div className="revenue-totalizers-title"><h3>Totalizzatori economici</h3><span>Confermato, pianificato e da confermare · {economicTotals.year}</span></div>
         <div className="revenue-totalizers-grid">
-          <article><span>Persona · anno</span><strong>{eur(economicTotals.personYear)}</strong><small>{person} · {economicTotals.year}</small></article>
-          <article><span>Gruppo {resolvedGroup} · mese</span><strong>{eur(economicTotals.groupMonth)}</strong><small>{monthPrefix}</small></article>
-          <article><span>Gruppo {resolvedGroup} · anno</span><strong>{eur(economicTotals.groupYear)}</strong><small>{economicTotals.year}</small></article>
+          {([
+            ["Persona · anno", economicTotals.personYear, `${person} · ${economicTotals.year}`],
+            [`Gruppo ${resolvedGroup} · mese`, economicTotals.groupMonth, monthPrefix],
+            [`Gruppo ${resolvedGroup} · anno`, economicTotals.groupYear, economicTotals.year],
+          ] as const).map(([label, value, period]) => (
+            <article key={label}>
+              <span>{label}</span><strong>{eur(value.confirmed + value.planned + value.pending)}</strong><small>{period}</small>
+              <div className="revenue-totalizer-breakdown">
+                <span>Confermato <b>{eur(value.confirmed)}</b></span>
+                <span>Pianificato <b>{eur(value.planned)}</b></span>
+                <span>Da confermare <b>{eur(value.pending)}</b></span>
+              </div>
+            </article>
+          ))}
         </div>
       </section>
       <div className="revenue-body">
