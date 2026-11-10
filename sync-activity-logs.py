@@ -270,6 +270,10 @@ def main():
         src_days = pd.to_datetime(frame[date_field], errors="coerce", dayfirst=True).dt.strftime("%Y-%m-%d")
         src_mask = frame[person_field].map(normalize).eq(normalize("Vita Anna")) & src_days.eq(day_key)
         src_confirmed = pd.to_numeric(frame.loc[src_mask, fields["confirmed_hours"]], errors="coerce").fillna(0).sum()
+        flag_hours_field = next((column for column in frame.columns if normalize(column) == "oreflagconfirmeddb"), None)
+        flag_minutes_field = next((column for column in frame.columns if normalize(column) == "minutiflagconfirmeddb"), None)
+        src_flag_hours = pd.to_numeric(frame.loc[src_mask, flag_hours_field], errors="coerce").fillna(0).sum() if flag_hours_field else 0
+        src_flag_minutes = pd.to_numeric(frame.loc[src_mask, flag_minutes_field], errors="coerce").fillna(0).sum() if flag_minutes_field else 0
         det_days = pd.to_datetime(detail_frame[detail_date], errors="coerce", dayfirst=True).dt.strftime("%Y-%m-%d")
         det_mask = detail_frame[detail_person].map(normalize).eq(normalize("Vita Anna")) & det_days.eq(day_key)
         det_count = int(det_mask.sum())
@@ -278,7 +282,7 @@ def main():
             pd.to_numeric(detail_frame.loc[det_mask & detail_frame[detail_confirmed].map(as_bool), detail_minutes], errors="coerce").fillna(0).sum()
             if detail_confirmed and detail_minutes else 0
         )
-        print(f"Diagnostica conferme Anna {day_key}: riepilogo={src_confirmed:g}h; dettaglio={det_count} righe, {det_true} confermate, {det_confirmed_minutes:g} minuti confermati")
+        print(f"Diagnostica conferme Anna {day_key}: ore_confermate={src_confirmed:g}h; flag_ore={src_flag_hours:g}h; flag_minuti={src_flag_minutes:g}; dettaglio={det_count} righe, {det_true} ZDT confermate, {det_confirmed_minutes:g} minuti confermati")
     required_detail = {
         "data": detail_date, "componente": detail_person, "commessa": detail_job,
         "task": detail_task, "riga": detail_plan,
