@@ -94,7 +94,7 @@ export default function RevenueEstimate({ records, person, monthPrefix, todayKey
       </header>
       <div className="revenue-kpis">
         <article><span>Fatturato stimato</span><strong>{eur(totals.revenue)}</strong><small>Prezzo unitario NAV × ore valorizzate</small></article>
-        <article><span>Ore valorizzate</span><strong>{fmt(totals.billable)} h</strong><small>Enable Invoice CRM oppure ore loggate</small></article>
+        <article><span>Ore valorizzate</span><strong>{fmt(totals.billable)} h</strong><small>Ore fatturabili per singola attività CRM</small></article>
         <article><span>Ore loggate collegate</span><strong>{fmt(totals.logged)} h</strong><small>{lines.length} voci attività nel mese</small></article>
         <article><span>Da verificare</span><strong className={unresolved.length ? "revenue-warning" : ""}>{unresolved.length}</strong><small>Commesse senza abbinamento o prezzo univoco</small></article>
       </div>
@@ -120,7 +120,7 @@ export default function RevenueEstimate({ records, person, monthPrefix, todayKey
             </table></div>}
         </section>
       </div>
-      <footer className="revenue-footnote">Le ore Enable Invoice CRM sono sommate una sola volta per commessa/task/riga nel mese; se non sono presenti, si usa la durata ZDT. La stima non è un importo fatturato.</footer>
+      <footer className="revenue-footnote">Le ore valorizzate provengono dal dettaglio CRM per singola attività. Il dato include le quantità fatturabili e la durata ZDT quando non esiste un’attività CRM collegata; ToBill falso vale zero. La stima non è un importo fatturato.</footer>
     </section>
   );
 }
