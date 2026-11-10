@@ -237,6 +237,10 @@ def main():
         (column for column in detail_frame.columns if normalize(column) in {"tobill", "enableinvoice"}),
         None,
     )
+    detail_confirmed = next(
+        (column for column in detail_frame.columns if normalize(column) in {"zdtconfirmed", "confirmed"}),
+        None,
+    )
     required_detail = {
         "data": detail_date, "componente": detail_person, "commessa": detail_job,
         "task": detail_task, "riga": detail_plan,
@@ -272,6 +276,7 @@ def main():
         return 0.0
 
     billable_by_activity = {}
+    confirmed_billable_by_activity = {}
     for _, detail in detail_frame.iterrows():
         key = (
             detail_day(detail.get(detail_date)),
@@ -281,11 +286,17 @@ def main():
             normalize_code(detail.get(detail_plan)),
         )
         if all(key):
-            billable_by_activity[key] = billable_by_activity.get(key, 0.0) + detail_hours(detail)
+            billable_hours = detail_hours(detail)
+            billable_by_activity[key] = billable_by_activity.get(key, 0.0) + billable_hours
+            if detail_confirmed and as_bool(detail.get(detail_confirmed)):
+                confirmed_billable_by_activity[key] = confirmed_billable_by_activity.get(key, 0.0) + billable_hours
 
     daily["Prezzo unitario NAV"] = 0.0
     daily["Ore valorizzate"] = 0.0
+    daily["Ore valorizzate confermate"] = 0.0
     daily["Stima fatturato"] = 0.0
+    daily["Stima fatturato confermato"] = 0.0
+    daily["Stima fatturato da confermare"] = 0.0
     daily["Fonte ore stima"] = "Ore Fatturabili CRM per attività"
     daily["Esito valorizzazione"] = ""
 
@@ -306,10 +317,14 @@ def main():
             continue
         billable_hours = billable_by_activity[detail_key]
         matched_detail_rows += 1
+        confirmed_hours = min(confirmed_billable_by_activity.get(detail_key, 0.0), billable_hours)
         daily.at[index, "Ore valorizzate"] = billable_hours
+        daily.at[index, "Ore valorizzate confermate"] = confirmed_hours
         if match:
             daily.at[index, "Prezzo unitario NAV"] = match["price"]
             daily.at[index, "Stima fatturato"] = billable_hours * match["price"]
+            daily.at[index, "Stima fatturato confermato"] = confirmed_hours * match["price"]
+            daily.at[index, "Stima fatturato da confermare"] = (billable_hours - confirmed_hours) * match["price"]
         else:
             daily.at[index, "Esito valorizzazione"] = status
 
