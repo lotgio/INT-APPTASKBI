@@ -241,6 +241,9 @@ def main():
         (column for column in detail_frame.columns if normalize(column) in {"zdtconfirmed", "confirmed"}),
         None,
     )
+    has_detail_confirmations = bool(
+        detail_confirmed and detail_frame[detail_confirmed].map(as_bool).any()
+    )
     required_detail = {
         "data": detail_date, "componente": detail_person, "commessa": detail_job,
         "task": detail_task, "riga": detail_plan,
@@ -288,7 +291,7 @@ def main():
         if all(key):
             billable_hours = detail_hours(detail)
             billable_by_activity[key] = billable_by_activity.get(key, 0.0) + billable_hours
-            if detail_confirmed and as_bool(detail.get(detail_confirmed)):
+            if has_detail_confirmations and as_bool(detail.get(detail_confirmed)):
                 confirmed_billable_by_activity[key] = confirmed_billable_by_activity.get(key, 0.0) + billable_hours
 
     daily["Prezzo unitario NAV"] = 0.0
@@ -320,7 +323,7 @@ def main():
         billable_hours = billable_by_activity[detail_key]
         matched_detail_rows += 1
         confirmed_hours = min(confirmed_billable_by_activity.get(detail_key, 0.0), billable_hours)
-        if not detail_confirmed:
+        if not has_detail_confirmations:
             logged_hours = max(numeric(row.get("Ore Loggate")) or 0.0, 0.0)
             confirmed_logged_hours = max(numeric(row.get("Ore Confermate")) or 0.0, 0.0)
             confirmed_share = min(confirmed_logged_hours / logged_hours, 1.0) if logged_hours else 0.0
