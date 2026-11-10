@@ -79,7 +79,7 @@ export default function RevenueEstimate({ records, person, group, groupMembers, 
   const economicTotals = useMemo(() => {
     const year = monthPrefix.slice(0, 4);
     const members = new Set(resolvedGroupMembers.map(norm));
-    const empty = () => ({ confirmed: 0, planned: 0, pending: 0 });
+    const empty = () => ({ effective: 0, planned: 0 });
     const personYear = empty();
     const groupMonth = empty();
     const groupYear = empty();
@@ -90,18 +90,15 @@ export default function RevenueEstimate({ records, person, group, groupMembers, 
       const isGroup = members.has(norm(row.Componente));
       if (!isPerson && !isGroup) return;
 
-      const logged = hours(row["Ore Loggate"] ?? row.Ore);
+      const billableHours = hours(row["Ore valorizzate"]);
       const price = number(row["Prezzo unitario NAV"]);
-      const revenue = number(row["Stima fatturato"]);
-      const confirmed = number(row["Stima fatturato confermato"]);
-      const pending = number(row["Stima fatturato da confermare"]);
+      const revenue = number(row["Stima fatturato"]) || billableHours * price;
       const bucket = day > todayKey
-        ? { confirmed: 0, planned: logged * price || revenue, pending: 0 }
-        : { confirmed, planned: 0, pending };
+        ? { effective: 0, planned: revenue }
+        : { effective: revenue, planned: 0 };
       const add = (target: typeof personYear) => {
-        target.confirmed += bucket.confirmed;
+        target.effective += bucket.effective;
         target.planned += bucket.planned;
-        target.pending += bucket.pending;
       };
       if (isPerson) add(personYear);
       if (isGroup) {
@@ -145,7 +142,7 @@ export default function RevenueEstimate({ records, person, group, groupMembers, 
         <article><span>Da verificare</span><strong className={unresolved.length ? "revenue-warning" : ""}>{unresolved.length}</strong><small>Commesse senza abbinamento o prezzo univoco</small></article>
       </div>
       <section className="revenue-totalizers" aria-label="Totalizzatori economici">
-        <div className="revenue-totalizers-title"><h3>Totalizzatori economici</h3><span>Confermato, pianificato e da confermare · {economicTotals.year}</span></div>
+        <div className="revenue-totalizers-title"><h3>Totalizzatori economici</h3><span>Fatturabile effettivo fino a oggi e pianificato da domani · {economicTotals.year}</span></div>
         <div className="revenue-totalizers-grid">
           {([
             ["Persona · anno", economicTotals.personYear, `${person} · ${economicTotals.year}`],
@@ -153,11 +150,10 @@ export default function RevenueEstimate({ records, person, group, groupMembers, 
             [`Gruppo ${resolvedGroup} · anno`, economicTotals.groupYear, economicTotals.year],
           ] as const).map(([label, value, period]) => (
             <article key={label}>
-              <span>{label}</span><strong>{eur(value.confirmed + value.planned + value.pending)}</strong><small>{period}</small>
+              <span>{label}</span><strong>{eur(value.effective + value.planned)}</strong><small>{period}</small>
               <div className="revenue-totalizer-breakdown">
-                <span>Confermato <b>{eur(value.confirmed)}</b></span>
-                <span>Pianificato <b>{eur(value.planned)}</b></span>
-                <span>Da confermare <b>{eur(value.pending)}</b></span>
+                <span>Effettivo fino a oggi <b>{eur(value.effective)}</b></span>
+                <span>Pianificato da domani <b>{eur(value.planned)}</b></span>
               </div>
             </article>
           ))}
