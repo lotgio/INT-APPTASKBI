@@ -352,7 +352,7 @@ export default function ActivityCalendarPage() {
           <article><span>Alert aperti</span><strong className={alerts.length ? "activity-red" : "activity-green"}>{alerts.length}</strong><small>Dal 1° novembre 2026 · {below} giornate sotto 8h</small></article>
         </section>
 
-        <RevenueEstimate records={records} person={selectedPerson} monthPrefix={monthPrefix} todayKey={todayKey} />
+        <RevenueEstimate records={records} person={selectedPerson} group={group} groupMembers={people} monthPrefix={monthPrefix} todayKey={todayKey} />
 
         <section className="activity-report">
           <header><div><h2>Report settimanale</h2><p>{selectedPerson} · {monthName} · consuntivi dei giorni conclusi; piani successivi a oggi</p></div><span>Obiettivo giornaliero: 8h</span></header>
