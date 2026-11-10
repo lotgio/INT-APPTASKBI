@@ -32,9 +32,11 @@ function hours(value: unknown) {
 const fmt = (value: number) => value.toLocaleString("it-IT", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 const eur = (value: number) => value.toLocaleString("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 2 });
 
-export default function RevenueEstimate({ records, person, monthPrefix, todayKey }: {
+export default function RevenueEstimate({ records, person, group, groupMembers, monthPrefix, todayKey }: {
   records: Row[];
   person: string;
+  group: string;
+  groupMembers: string[];
   monthPrefix: string;
   todayKey: string;
 }) {
@@ -65,6 +67,25 @@ export default function RevenueEstimate({ records, person, monthPrefix, todayKey
     });
     return [...grouped.values()].sort((a, b) => b.revenue - a.revenue || a.customer.localeCompare(b.customer, "it"));
   }, [records, person, monthPrefix, todayKey]);
+
+  const economicTotals = useMemo(() => {
+    const year = monthPrefix.slice(0, 4);
+    const members = new Set(groupMembers.map(norm));
+    let personYear = 0;
+    let groupMonth = 0;
+    let groupYear = 0;
+    records.forEach((row) => {
+      const day = String(row.Data ?? "").slice(0, 10);
+      if (!day || day > todayKey || day.slice(0, 4) !== year) return;
+      const revenue = number(row["Stima fatturato"]);
+      if (norm(row.Componente) === norm(person)) personYear += revenue;
+      if (members.has(norm(row.Componente))) {
+        groupYear += revenue;
+        if (day.startsWith(monthPrefix)) groupMonth += revenue;
+      }
+    });
+    return { year, personYear, groupMonth, groupYear };
+  }, [records, person, group, groupMembers, monthPrefix, todayKey]);
 
   const totals = lines.reduce((sum, line) => ({
     logged: sum.logged + line.logged,
@@ -98,6 +119,14 @@ export default function RevenueEstimate({ records, person, monthPrefix, todayKey
         <article><span>Ore loggate collegate</span><strong>{fmt(totals.logged)} h</strong><small>{lines.length} voci attività nel mese</small></article>
         <article><span>Da verificare</span><strong className={unresolved.length ? "revenue-warning" : ""}>{unresolved.length}</strong><small>Commesse senza abbinamento o prezzo univoco</small></article>
       </div>
+      <section className="revenue-totalizers" aria-label="Totalizzatori economici">
+        <div className="revenue-totalizers-title"><h3>Totalizzatori economici</h3><span>Stime registrate fino a oggi · {economicTotals.year}</span></div>
+        <div className="revenue-totalizers-grid">
+          <article><span>Persona · anno</span><strong>{eur(economicTotals.personYear)}</strong><small>{person} · {economicTotals.year}</small></article>
+          <article><span>Gruppo {group} · mese</span><strong>{eur(economicTotals.groupMonth)}</strong><small>{monthPrefix}</small></article>
+          <article><span>Gruppo {group} · anno</span><strong>{eur(economicTotals.groupYear)}</strong><small>{economicTotals.year}</small></article>
+        </div>
+      </section>
       <div className="revenue-body">
         <section className="revenue-clients">
           <div className="revenue-section-heading"><div><h3>Stima per cliente</h3><p>Importo stimato per le attività non interne</p></div><span>{clients.length} clienti</span></div>
