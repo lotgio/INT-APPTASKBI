@@ -183,12 +183,9 @@ def main():
             return None, "Commessa/task/riga non abbinati"
 
         resource_no = resource_by_name.get(normalize(row.get(person_field, "")), "")
-        if not resource_no:
-            return None, "Risorsa CRM non disponibile"
-        resource_matches = [item for item in candidates if normalize(item.get("Resource No", "")) == resource_no]
-        if not resource_matches:
-            return None, "Riga CRM non associata alla risorsa"
-        candidates = resource_matches
+        resource_matches = [item for item in candidates if resource_no and normalize(item.get("Resource No", "")) == resource_no]
+        if resource_matches:
+            candidates = resource_matches
 
         prices = {numeric(item.get("Unit Price")) for item in candidates}
         if None in prices or len(prices) != 1:
