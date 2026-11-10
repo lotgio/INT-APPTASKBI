@@ -13,6 +13,7 @@ type RevenueLine = {
   revenue: number;
   match: string;
   source: string;
+  kind: string;
 };
 
 function norm(value: unknown) {
@@ -49,12 +50,13 @@ export default function RevenueEstimate({ records, person, monthPrefix, todayKey
       const customer = String(row.Cliente ?? "").trim() || "Cliente non disponibile";
       const match = String(row["Esito valorizzazione"] ?? "Dati di valorizzazione non disponibili");
       const source = String(row["Fonte ore stima"] ?? "—");
+      const kind = String(row["Tipo attività"] ?? "").toUpperCase();
       const logged = hours(row["Ore Loggate"] ?? row.Ore);
       const key = [customer, code, job, activity, match, source].join("|");
       const current = grouped.get(key) || {
         customer, code, job, activity, logged: 0, billable: 0,
         unitPrice: number(row["Prezzo unitario NAV"]),
-        revenue: 0, match, source
+        revenue: 0, match, source, kind
       };
       current.logged += logged;
       current.billable += hours(row["Ore valorizzate"]);
@@ -72,7 +74,7 @@ export default function RevenueEstimate({ records, person, monthPrefix, todayKey
   const unresolved = lines.filter((line) => line.match !== "Valorizzata");
   const clients = useMemo(() => {
     const values = new Map<string, { revenue: number; logged: number; lines: number }>();
-    lines.filter((line) => line.match === "Valorizzata").forEach((line) => {
+    lines.filter((line) => line.match === "Valorizzata" && line.kind !== "COIG").forEach((line) => {
       const current = values.get(line.customer) || { revenue: 0, logged: 0, lines: 0 };
       current.revenue += line.revenue;
       current.logged += line.logged;
@@ -118,7 +120,7 @@ export default function RevenueEstimate({ records, person, monthPrefix, todayKey
             </table></div>}
         </section>
       </div>
-      <footer className="revenue-footnote">Le ore CRM abilitate alla fatturazione sono ripartite sui consuntivi della commessa; in assenza di abilitazione viene usata la durata loggata. La stima non è un importo fatturato.</footer>
+      <footer className="revenue-footnote">Le ore CRM abilitate alla fatturazione sono ripartite in proporzione alle ore CRM loggate della stessa commessa/task/riga; se la commessa non è abilitata si usa l’intera durata loggata. La stima non è un importo fatturato.</footer>
     </section>
   );
 }
