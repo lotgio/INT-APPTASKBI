@@ -51,3 +51,8 @@
 .revenue-footnote { padding: 0 20px 15px; color: #7a8795; font-size: 9px; line-height: 1.5; }
 @media (max-width: 950px) { .revenue-totalizers-grid { grid-template-columns: 1fr; } .revenue-kpis { grid-template-columns: repeat(2,minmax(0,1fr)); } .revenue-body { grid-template-columns: 1fr; } }
 @media (max-width: 620px) { .revenue-header { padding: 14px; } .revenue-totalizers { padding: 0 10px 10px; } .revenue-totalizers-title { align-items: flex-start; flex-direction: column; gap: 3px; } .revenue-header > span { white-space: normal; text-align: right; } .revenue-kpis { padding: 10px; gap: 8px; } .revenue-kpis article { padding: 10px; } .revenue-kpis article strong { font-size: 18px; } .revenue-body { padding: 10px; } .revenue-footnote { padding: 0 12px 13px; } }
+
+.revenue-totalizer-breakdown { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 5px 10px; margin-top: 3px; padding-top: 7px; border-top: 1px solid #f0e6d6; }
+.revenue-totalizer-breakdown span { color: #748195; font-size: 9px; }
+.revenue-totalizer-breakdown b { display: block; margin-top: 2px; color: #34465b; font-size: 10px; font-weight: 650; font-variant-numeric: tabular-nums; }
+@media (max-width: 620px) { .revenue-totalizer-breakdown { grid-template-columns: 1fr; gap: 6px; } }
