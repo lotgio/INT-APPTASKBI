@@ -254,7 +254,7 @@ export default function ActivityCalendarPage() {
     };
     coigDetails.forEach((item) => add(item));
     coigPlannedDetails.forEach((item) => add(item, true));
-    return [...groups.values()].sort((a, b) => (b.logged + b.planned) - (a.logged + a.planned));
+    return [...groups.values()].sort((a, b) => (b.confirmed + b.planned) - (a.confirmed + a.planned));
   }, [coigDetails, coigPlannedDetails]);
   const clientSummary = useMemo(() => {
     const groups = new Map<string, ActivitySummary>();
@@ -268,7 +268,7 @@ export default function ActivityCalendarPage() {
     };
     otherDetails.forEach((item) => add(item));
     otherPlannedDetails.forEach((item) => add(item, true));
-    return [...groups.values()].sort((a, b) => (b.logged + b.planned) - (a.logged + a.planned) || a.label.localeCompare(b.label, "it"));
+    return [...groups.values()].sort((a, b) => (b.confirmed + b.planned) - (a.confirmed + a.planned) || a.label.localeCompare(b.label, "it"));
   }, [otherDetails, otherPlannedDetails]);
   const internalChartMax = Math.max(1, ...internalActivitySummary.map((item) => item.confirmed + item.planned));
   const clientChartMax = Math.max(1, ...clientSummary.map((item) => item.confirmed + item.planned));
@@ -416,7 +416,7 @@ export default function ActivityCalendarPage() {
         </section>
 
         <section className="activity-report activity-job-report">
-          <header><div><h2>Dove si concentrano le attività</h2><p>{selectedPerson} · {monthName} · ore registrate fino a oggi</p></div><span>{jobDetails.length} voci di dettaglio</span></header>
+          <header><div><h2>Dove si concentrano le attività</h2><p>{selectedPerson} · {monthName} · ore confermate fino a oggi e pianificate da domani</p></div><span>{jobDetails.length} voci di dettaglio</span></header>
           <div className="activity-analysis">
             <div className="activity-balance-card">
               <div className="activity-balance-heading"><div><strong>Confermate e pianificate</strong><small>{balanceLabel}</small></div><span>{formatHours(totalReportHours)} h totali</span></div>
