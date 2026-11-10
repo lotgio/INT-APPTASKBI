@@ -17,7 +17,7 @@ TEAM_MEMBERS = {
 
 FIELD_CANDIDATES = {
     "date": ["data", "giorno", "postingdate", "workdate", "activitydate", "date"],
-    "person": ["risorsa", "nome", "nominativo", "dipendente", "utente", "resource", "resourcename", "employeename", "person", "member", "persona"],
+    "person": ["componente", "risorsa", "nome", "nominativo", "dipendente", "utente", "resource", "resourcename", "employeename", "person", "member", "persona"],
     "hours": ["oreloggate", "ore", "durata", "oreconsuntivate", "hours", "loggedhours", "quantity", "workinghours", "time"],
     "confirmed_hours": ["oreconfermate", "confirmedhours"],
     "unconfirmed_hours": ["orenonconfermate", "unconfirmedhours"],
@@ -94,6 +94,23 @@ def main():
     content.seek(0)
     frame = pd.read_parquet(content)
     print(f"Colonne origine parquet: {', '.join(str(column) for column in frame.columns)}")
+
+    # Il dettaglio contiene una riga per attività ZDT e le ore fatturabili già
+    # calcolate dalla sorgente CRM: usarle per data/commessa evita ripartizioni
+    # stimate da aggregati mensili.
+    detail_blob = os.getenv(
+        "AZURE_ACTIVITY_DETAIL_BLOB",
+        "SQLSERVER1_ZeroDownTimeDB_ControlloLogCRM_DettaglioAttivita.parquet",
+    )
+    detail_container = os.getenv("AZURE_ACTIVITY_DETAIL_CONTAINER", container)
+    detail_client = BlobServiceClient.from_connection_string(connection).get_blob_client(
+        container=detail_container, blob=detail_blob
+    )
+    detail_content = BytesIO()
+    detail_client.download_blob().readinto(detail_content)
+    detail_content.seek(0)
+    detail_frame = pd.read_parquet(detail_content)
+    print(f"Colonne dettaglio CRM: {', '.join(str(column) for column in detail_frame.columns)}")
 
     date_field = find_field(frame.columns, "date")
     person_field = find_field(frame.columns, "person")
@@ -196,47 +213,107 @@ def main():
     daily["Fonte ore stima"] = ""
     daily["Esito valorizzazione"] = ""
 
-    # Le ore CRM sono aggregate per dettaglio commessa, mentre ZDT ha una riga
-    # per data/attività. Conta quindi Enable Invoice una sola volta per risorsa,
-    # commessa/task/riga e mese, ripartendolo tra le righe ZDT secondo le ore
-    # loggate; altrimenti la stessa quantità CRM verrebbe duplicata ogni giorno.
-    invoice_groups = {}
+    detail_date = find_field(detail_frame.columns, "date")
+    detail_person = find_field(detail_frame.columns, "person")
+    detail_job = find_field(detail_frame.columns, "job_code")
+    detail_task = find_field(detail_frame.columns, "task_code")
+    detail_plan = find_field(detail_frame.columns, "plan_code")
+    detail_billable = next(
+        (column for column in detail_frame.columns if normalize(column) in {"orefatturabili", "billablehours"}),
+        None,
+    )
+    detail_invoice_hours = next(
+        (column for column in detail_frame.columns if normalize(column) in {"invoicequantityore", "invoicehours"}),
+        None,
+    )
+    detail_invoice_minutes = next(
+        (column for column in detail_frame.columns if normalize(column) in {"invoicequantity", "invoiceminutes"}),
+        None,
+    )
+    detail_to_bill = next(
+        (column for column in detail_frame.columns if normalize(column) in {"tobill", "enableinvoice"}),
+        None,
+    )
+    required_detail = {
+        "data": detail_date, "componente": detail_person, "commessa": detail_job,
+        "task": detail_task, "riga": detail_plan,
+    }
+    missing_detail = [name for name, column in required_detail.items() if column is None]
+    if missing_detail:
+        raise ValueError(
+            f"Colonne chiave mancanti nel dettaglio CRM: {missing_detail}; "
+            f"colonne presenti: {list(detail_frame.columns)}"
+        )
+    if detail_billable is None and detail_invoice_hours is None and detail_invoice_minutes is None:
+        raise ValueError("Il dettaglio CRM non contiene Ore Fatturabili né InvoiceQuantity")
+
+    def detail_day(value):
+        parsed = pd.to_datetime(value, errors="coerce", dayfirst=True)
+        return parsed.strftime("%Y-%m-%d") if pd.notna(parsed) else ""
+
+    def detail_hours(row):
+        if detail_billable:
+            value = numeric(row.get(detail_billable))
+            if value is not None:
+                return max(value, 0)
+        if detail_to_bill and not as_bool(row.get(detail_to_bill)):
+            return 0.0
+        if detail_invoice_hours:
+            value = numeric(row.get(detail_invoice_hours))
+            if value is not None:
+                return max(value, 0)
+        if detail_invoice_minutes:
+            value = numeric(row.get(detail_invoice_minutes))
+            if value is not None:
+                return max(value / 60, 0)
+        return 0.0
+
+    billable_by_activity = {}
+    for _, detail in detail_frame.iterrows():
+        key = (
+            detail_day(detail.get(detail_date)),
+            normalize(detail.get(detail_person, "")),
+            normalize_code(detail.get(detail_job)),
+            normalize_code(detail.get(detail_task)),
+            normalize_code(detail.get(detail_plan)),
+        )
+        if all(key):
+            billable_by_activity[key] = billable_by_activity.get(key, 0.0) + detail_hours(detail)
+
+    daily["Prezzo unitario NAV"] = 0.0
+    daily["Ore valorizzate"] = 0.0
+    daily["Stima fatturato"] = 0.0
+    daily["Fonte ore stima"] = "Ore Fatturabili CRM per attività"
+    daily["Esito valorizzazione"] = ""
+
+    matched_detail_rows = 0
     for index, row in daily.iterrows():
         match, status = resolve_job(row)
-        logged_hours = numeric(row.get("Ore Loggate")) or 0
         daily.at[index, "Esito valorizzazione"] = status
-        if not match:
+        detail_key = (
+            detail_day(row.get(date_field)),
+            normalize(row.get(person_field, "")),
+            normalize_code(row.get("Codice commessa")),
+            normalize_code(row.get("Codice task")),
+            normalize_code(row.get("Numero riga commessa")),
+        )
+        if detail_key not in billable_by_activity:
+            daily.at[index, "Esito valorizzazione"] = "Attività non abbinata al dettaglio CRM"
+            daily.at[index, "Fonte ore stima"] = "Dettaglio CRM mancante"
             continue
-        daily.at[index, "Prezzo unitario NAV"] = match["price"]
-        if match["enabled"]:
-            period = pd.to_datetime(row.get(date_field), errors="coerce")
-            month_key = period.strftime("%Y-%m") if pd.notna(period) else str(row.get(date_field, ""))[:7]
-            key = (
-                month_key,
-                normalize(row.get(person_field, "")),
-                normalize_code(row.get("Codice commessa")),
-                normalize_code(row.get("Codice task")),
-                normalize_code(row.get("Numero riga commessa")),
-            )
-            invoice_groups.setdefault(key, []).append(
-                (index, logged_hours, match["invoice_hours"], match["price"])
-            )
-            daily.at[index, "Fonte ore stima"] = "Ore Enable Invoicing CRM"
+        billable_hours = billable_by_activity[detail_key]
+        matched_detail_rows += 1
+        daily.at[index, "Ore valorizzate"] = billable_hours
+        if match:
+            daily.at[index, "Prezzo unitario NAV"] = match["price"]
+            daily.at[index, "Stima fatturato"] = billable_hours * match["price"]
         else:
-            daily.at[index, "Ore valorizzate"] = logged_hours
-            daily.at[index, "Stima fatturato"] = logged_hours * match["price"]
-            daily.at[index, "Fonte ore stima"] = "Durata loggata ZDT"
+            daily.at[index, "Esito valorizzazione"] = status
 
-    for rows in invoice_groups.values():
-        total_logged = sum(item[1] for item in rows)
-        # Tutte le righe del gruppo risolvono lo stesso dettaglio CRM mensile;
-        # il totale enable invoice viene applicato una sola volta.
-        invoice_hours = rows[0][2]
-        for index, logged_hours, _, price in rows:
-            share = logged_hours / total_logged if total_logged > 0 else (1 if index == rows[0][0] else 0)
-            billable_hours = invoice_hours * share
-            daily.at[index, "Ore valorizzate"] = billable_hours
-            daily.at[index, "Stima fatturato"] = billable_hours * price
+    if len(daily) and matched_detail_rows == 0:
+        raise ValueError("Nessuna riga giornaliera abbinata al nuovo dettaglio CRM; verificare le chiavi")
+
+    print(f"Righe giornaliere abbinate al dettaglio CRM: {matched_detail_rows}/{len(daily)}")
 
     daily = daily.rename(columns={date_field: "Data", person_field: "Componente"})
     records = daily.astype(object).where(pd.notna(daily), None).to_dict(orient="records")
