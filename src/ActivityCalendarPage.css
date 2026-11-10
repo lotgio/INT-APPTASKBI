@@ -186,3 +186,29 @@
   .activity-day-modal li { align-items: flex-start; padding: 10px; }
   .activity-day-modal-job-name span { line-height: 1.4; }
 }
+
+
+/* Pair confirmed and planned totals by activity type for a clear shared scale. */
+.activity-balance-rows { display: grid; gap: 14px; margin-top: 16px; }
+.activity-balance-row { display: grid; grid-template-columns: minmax(130px, 180px) minmax(120px, 1fr) minmax(300px, 420px); align-items: center; gap: 14px; }
+.activity-balance-row-heading { display: flex; flex-direction: column; gap: 3px; }
+.activity-balance-row-heading strong { color: #27384b; font-size: 12px; }
+.activity-balance-row-heading b { color: #6f7e8f; font-size: 10px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.activity-balance-track.activity-balance-pair { height: 16px; margin: 0; border-radius: 5px; }
+.activity-balance-pair span { min-width: 0; }
+.activity-balance-values { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.activity-balance-values > span { display: flex; align-items: center; gap: 6px; color: #637285; font-size: 10px; white-space: nowrap; }
+.activity-balance-values strong { margin-left: auto; color: #27384b; font-size: 11px; font-variant-numeric: tabular-nums; }
+.activity-swatch { width: 9px; height: 9px; flex: 0 0 9px; border-radius: 2px; }
+.activity-swatch.confirmed-coig { background: #d9480f; }
+.activity-swatch.planned-coig { background: #ffb38a; }
+.activity-swatch.confirmed-external { background: #16803c; }
+.activity-swatch.planned-external { background: #9ed7ae; }
+@media (max-width: 900px) {
+  .activity-balance-row { grid-template-columns: minmax(110px, 140px) minmax(100px, 1fr); gap: 8px 12px; }
+  .activity-balance-values { grid-column: 2; }
+}
+@media (max-width: 560px) {
+  .activity-balance-row { grid-template-columns: 1fr; gap: 6px; }
+  .activity-balance-values { grid-column: 1; }
+}
