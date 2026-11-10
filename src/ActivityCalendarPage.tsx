@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { getActivityLogs } from "./api";
+import RevenueEstimate from "./RevenueEstimate";
 import "./ActivityCalendarPage.css";
 
 type Row = Record<string, unknown>;
@@ -349,6 +350,8 @@ export default function ActivityCalendarPage() {
           <article><span>Percentuale confermata</span><strong>{confirmationRate.toLocaleString("it-IT", { maximumFractionDigits: 0 })}%</strong><small>{formatHours(total.unconfirmed)}h ancora non confermate</small></article>
           <article><span>Alert aperti</span><strong className={alerts.length ? "activity-red" : "activity-green"}>{alerts.length}</strong><small>Dal 1° novembre 2026 · {below} giornate sotto 8h</small></article>
         </section>
+
+        <RevenueEstimate records={records} person={selectedPerson} monthPrefix={monthPrefix} todayKey={todayKey} />
 
         <section className="activity-report">
           <header><div><h2>Report settimanale</h2><p>{selectedPerson} · {monthName} · consuntivi dei giorni conclusi; piani successivi a oggi</p></div><span>Obiettivo giornaliero: 8h</span></header>
