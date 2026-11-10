@@ -7,9 +7,9 @@ import "./ActivityCalendarPage.css";
 type Row = Record<string, unknown>;
 type DayTotals = { logged: number; confirmed: number; unconfirmed: number };
 type ActivityAlert = { id: string; date: string; kind: "hours" | "confirmation"; logged: number; confirmed: number };
-type JobDetail = { code: string; name: string; activity: string; customer: string; kind: "COIG" | "Non COIG"; logged: number; confirmed: number };
+type JobDetail = { code: string; name: string; activity: string; customer: string; kind: "COIG" | "Non COIG"; logged: number; confirmed: number; planned?: number };
 type ClientDayGroup = { customer: string; logged: number; confirmed: number; jobs: JobDetail[] };
-type ActivitySummary = { label: string; logged: number; codes: Set<string> };
+type ActivitySummary = { label: string; logged: number; confirmed: number; planned: number; codes: Set<string> };
 const DAILY_TARGET = 8;
 const ALERT_START_DATE = "2026-11-01";
 const FIXED_HOLIDAYS: Record<string, string> = {
@@ -202,38 +202,74 @@ export default function ActivityCalendarPage() {
     });
     return [...grouped.values()].sort((a, b) => b.logged - a.logged || a.code.localeCompare(b.code, "it"));
   }, [records, selectedPerson, monthPrefix, todayKey]);
+  const plannedDetails = useMemo(() => {
+    const grouped = new Map<string, JobDetail>();
+    records.forEach((row) => {
+      if (normalize(String(row.Componente ?? "").trim()) !== normalize(selectedPerson)) return;
+      const day = toDay(row.Data);
+      if (!day || !day.startsWith(monthPrefix) || day <= todayKey || !isWorkday(day)) return;
+      const planned = Math.max(toHours(row["Ore Loggate"] ?? row.Ore), 0);
+      if (!planned) return;
+      const code = String(row["Codice commessa"] ?? "").trim();
+      const name = String(row["Nome commessa"] ?? "").trim();
+      const activity = String(row["Dettaglio attività"] ?? "").trim();
+      const customer = String(row.Cliente ?? "").trim();
+      const startsWithCoig = [code, name, activity].some((value) => /^COIG/i.test(value));
+      const kind: JobDetail["kind"] = String(row["Tipo attività"] ?? "").toUpperCase() === "COIG" || startsWithCoig ? "COIG" : "Non COIG";
+      const key = [kind, code, name, activity, customer].join("|");
+      const current = grouped.get(key) || { code, name, activity, customer, kind, logged: 0, confirmed: 0, planned: 0 };
+      current.planned = (current.planned || 0) + planned;
+      grouped.set(key, current);
+    });
+    return [...grouped.values()].sort((a, b) => (b.planned || 0) - (a.planned || 0) || a.code.localeCompare(b.code, "it"));
+  }, [records, selectedPerson, monthPrefix, todayKey]);
   const coigDetails = jobDetails.filter((item) => item.kind === "COIG");
   const otherDetails = jobDetails.filter((item) => item.kind === "Non COIG");
+  const coigPlannedDetails = plannedDetails.filter((item) => item.kind === "COIG");
+  const otherPlannedDetails = plannedDetails.filter((item) => item.kind === "Non COIG");
   const coigHours = coigDetails.reduce((sum, item) => sum + item.logged, 0);
   const otherHours = otherDetails.reduce((sum, item) => sum + item.logged, 0);
+  const coigPlannedHours = coigPlannedDetails.reduce((sum, item) => sum + (item.planned || 0), 0);
+  const otherPlannedHours = otherPlannedDetails.reduce((sum, item) => sum + (item.planned || 0), 0);
   const totalJobHours = coigHours + otherHours;
+  const totalPlannedJobHours = coigPlannedHours + otherPlannedHours;
   const coigShare = totalJobHours ? coigHours / totalJobHours * 100 : 0;
   const otherShare = totalJobHours ? otherHours / totalJobHours * 100 : 0;
+  const coigPlannedShare = totalPlannedJobHours ? coigPlannedHours / totalPlannedJobHours * 100 : 0;
+  const otherPlannedShare = totalPlannedJobHours ? otherPlannedHours / totalPlannedJobHours * 100 : 0;
   const internalActivitySummary = useMemo(() => {
     const groups = new Map<string, ActivitySummary>();
-    coigDetails.forEach((item) => {
+    const add = (item: JobDetail, planned = false) => {
       const label = item.activity || item.name || item.code || "Attività senza descrizione";
-      const current = groups.get(label) || { label, logged: 0, codes: new Set<string>() };
-      current.logged += item.logged;
+      const current = groups.get(label) || { label, logged: 0, confirmed: 0, planned: 0, codes: new Set<string>() };
+      if (planned) current.planned += item.planned || 0;
+      else { current.logged += item.logged; current.confirmed += item.confirmed; }
       if (item.code) current.codes.add(item.code);
       groups.set(label, current);
-    });
-    return [...groups.values()].sort((a, b) => b.logged - a.logged);
-  }, [coigDetails]);
+    };
+    coigDetails.forEach((item) => add(item));
+    coigPlannedDetails.forEach((item) => add(item, true));
+    return [...groups.values()].sort((a, b) => (b.logged + b.planned) - (a.logged + a.planned));
+  }, [coigDetails, coigPlannedDetails]);
   const clientSummary = useMemo(() => {
     const groups = new Map<string, ActivitySummary>();
-    otherDetails.forEach((item) => {
+    const add = (item: JobDetail, planned = false) => {
       const label = item.customer || "Cliente non disponibile";
-      const current = groups.get(label) || { label, logged: 0, codes: new Set<string>() };
-      current.logged += item.logged;
+      const current = groups.get(label) || { label, logged: 0, confirmed: 0, planned: 0, codes: new Set<string>() };
+      if (planned) current.planned += item.planned || 0;
+      else { current.logged += item.logged; current.confirmed += item.confirmed; }
       if (item.code) current.codes.add(item.code);
       groups.set(label, current);
-    });
-    return [...groups.values()].sort((a, b) => b.logged - a.logged || a.label.localeCompare(b.label, "it"));
-  }, [otherDetails]);
-  const internalLead = internalActivitySummary[0];
-  const clientLead = clientSummary[0];
-  const balanceLabel = !totalJobHours ? "Nessuna ora registrata" : coigHours === otherHours ? "Ore interne ed esterne equivalenti" : coigHours > otherHours ? `Prevalgono le attività interne di ${formatHours(coigHours - otherHours)} h` : `Prevalgono le attività non COIG di ${formatHours(otherHours - coigHours)} h`;
+    };
+    otherDetails.forEach((item) => add(item));
+    otherPlannedDetails.forEach((item) => add(item, true));
+    return [...groups.values()].sort((a, b) => (b.logged + b.planned) - (a.logged + a.planned) || a.label.localeCompare(b.label, "it"));
+  }, [otherDetails, otherPlannedDetails]);
+  const internalLead = [...internalActivitySummary].filter((item) => item.logged > 0).sort((a, b) => b.logged - a.logged)[0];
+  const plannedInternalLead = [...internalActivitySummary].filter((item) => item.planned > 0).sort((a, b) => b.planned - a.planned)[0];
+  const clientLead = [...clientSummary].filter((item) => item.logged > 0).sort((a, b) => b.logged - a.logged)[0];
+  const plannedClientLead = [...clientSummary].filter((item) => item.planned > 0).sort((a, b) => b.planned - a.planned)[0];
+  const balanceLabel = !totalJobHours ? (totalPlannedJobHours ? "Nessuna ora effettiva; sono presenti ore pianificate" : "Nessuna ora registrata") : coigHours === otherHours ? "Ore interne ed esterne equivalenti" : coigHours > otherHours ? `Prevalgono le attività interne di ${formatHours(coigHours - otherHours)} h` : `Prevalgono le attività non COIG di ${formatHours(otherHours - coigHours)} h`;
 
   const alerts = useMemo(() => {
     if (!firstActivityDate) return [] as ActivityAlert[];
@@ -376,23 +412,39 @@ export default function ActivityCalendarPage() {
           <header><div><h2>Dove si concentrano le attività</h2><p>{selectedPerson} · {monthName} · ore registrate fino a oggi</p></div><span>{jobDetails.length} voci di dettaglio</span></header>
           <div className="activity-analysis">
             <div className="activity-balance-card">
-              <div className="activity-balance-heading"><div><strong>Ripartizione delle ore</strong><small>{balanceLabel}</small></div><span>{formatHours(totalJobHours)} h totali</span></div>
-              <div className="activity-balance-track" role="img" aria-label={`Attività interne ${coigShare.toFixed(0)}%, attività non COIG ${otherShare.toFixed(0)}%`}>
+              <div className="activity-balance-heading"><div><strong>Ripartizione delle ore</strong><small>{balanceLabel}</small></div><span>{formatHours(totalJobHours)} h effettive</span></div>
+              <div className="activity-balance-track" role="img" aria-label={`Ore effettive: interne ${coigShare.toFixed(0)}%, non COIG ${otherShare.toFixed(0)}%`}>
                 <span className="activity-balance-coig" style={{ width: `${coigShare}%` }} />
                 <span className="activity-balance-external" style={{ width: `${otherShare}%` }} />
               </div>
-              <div className="activity-balance-legend"><span><i className="activity-dot coig" />Interne COIG <strong>{formatHours(coigHours)} h · {coigShare.toLocaleString("it-IT", { maximumFractionDigits: 0 })}%</strong></span><span><i className="activity-dot external" />Non COIG <strong>{formatHours(otherHours)} h · {otherShare.toLocaleString("it-IT", { maximumFractionDigits: 0 })}%</strong></span></div>
+              <div className="activity-balance-legend"><span><i className="activity-dot coig" />Interne COIG <strong>{formatHours(coigHours)} h loggate · {formatHours(coigDetails.reduce((sum, item) => sum + item.confirmed, 0))} h confermate</strong></span><span><i className="activity-dot external" />Non COIG <strong>{formatHours(otherHours)} h loggate · {formatHours(otherDetails.reduce((sum, item) => sum + item.confirmed, 0))} h confermate</strong></span></div>
+              <div className="activity-planned-balance-heading"><strong>Ore pianificate da domani</strong><span>{formatHours(totalPlannedJobHours)} h</span></div>
+              <div className="activity-balance-track activity-balance-planned-track" role="img" aria-label={`Ore pianificate: interne ${formatHours(coigPlannedHours)} ore, non COIG ${formatHours(otherPlannedHours)} ore`}>
+                <span className="activity-balance-planned-coig" style={{ width: `${coigPlannedShare}%` }} />
+                <span className="activity-balance-planned-external" style={{ width: `${otherPlannedShare}%` }} />
+              </div>
+              <div className="activity-balance-legend activity-planned-legend"><span><i className="activity-dot planned-coig" />Interne COIG <strong>{formatHours(coigPlannedHours)} h pianificate</strong></span><span><i className="activity-dot planned-external" />Non COIG <strong>{formatHours(otherPlannedHours)} h pianificate</strong></span></div>
             </div>
             <div className="activity-concentration-grid">
               <section className="activity-chart-card">
                 <header><div><h3>Attività interne · COIG</h3><p>Ripartizione per attività</p></div><span>{internalActivitySummary.length} attività</span></header>
-                {internalActivitySummary.length === 0 ? <p className="activity-chart-empty">Nessuna attività interna nel periodo.</p> : <ol>{internalActivitySummary.slice(0, 7).map((item) => <li key={item.label}><div className="activity-chart-label"><span title={item.label}>{item.label}</span><strong>{formatHours(item.logged)} h <small>{coigHours ? (item.logged / coigHours * 100).toLocaleString("it-IT", { maximumFractionDigits: 0 }) : 0}%</small></strong></div><div className="activity-chart-track"><i className="coig" style={{ width: `${coigHours ? item.logged / coigHours * 100 : 0}%` }} /></div></li>)}</ol>}
-                {internalLead && <p className="activity-chart-note">Maggiore concentrazione: <strong>{internalLead.label}</strong> · {formatHours(internalLead.logged)} h</p>}
+                {internalActivitySummary.length === 0 ? <p className="activity-chart-empty">Nessuna attività interna nel periodo.</p> : <ol>{internalActivitySummary.slice(0, 7).map((item) => <li key={item.label}>
+                  <div className="activity-chart-label"><span title={item.label}>{item.label}</span><strong>{formatHours(item.logged)} h loggate · {formatHours(item.confirmed)} h confermate</strong></div>
+                  <div className="activity-chart-track"><i className="coig" style={{ width: `${coigHours ? item.logged / coigHours * 100 : 0}%` }} /></div>
+                  {item.planned > 0 && <><div className="activity-chart-plan-label"><span>Pianificate</span><strong>{formatHours(item.planned)} h</strong></div><div className="activity-chart-track"><i className="planned" style={{ width: `${coigPlannedHours ? item.planned / coigPlannedHours * 100 : 0}%` }} /></div></>}
+                </li>)}</ol>}
+                {internalLead && <p className="activity-chart-note">Maggiore attività effettiva: <strong>{internalLead.label}</strong> · {formatHours(internalLead.logged)} h</p>}
+                {plannedInternalLead && <p className="activity-chart-note">Più ore pianificate: <strong>{plannedInternalLead.label}</strong> · {formatHours(plannedInternalLead.planned)} h</p>}
               </section>
               <section className="activity-chart-card">
                 <header><div><h3>Attività non COIG</h3><p>Raggruppate per cliente</p></div><span>{clientSummary.length} clienti</span></header>
-                {clientSummary.length === 0 ? <p className="activity-chart-empty">Nessuna attività non COIG nel periodo.</p> : <ol>{clientSummary.slice(0, 7).map((item) => <li key={item.label}><div className="activity-chart-label"><span title={item.label}>{item.label}</span><strong>{formatHours(item.logged)} h <small>{otherHours ? (item.logged / otherHours * 100).toLocaleString("it-IT", { maximumFractionDigits: 0 }) : 0}%</small></strong></div><div className="activity-chart-track"><i className="external" style={{ width: `${otherHours ? item.logged / otherHours * 100 : 0}%` }} /></div></li>)}</ol>}
-                {clientLead && <p className="activity-chart-note">Cliente con più ore: <strong>{clientLead.label}</strong> · {formatHours(clientLead.logged)} h su {clientLead.codes.size} commesse</p>}
+                {clientSummary.length === 0 ? <p className="activity-chart-empty">Nessuna attività non COIG nel periodo.</p> : <ol>{clientSummary.slice(0, 7).map((item) => <li key={item.label}>
+                  <div className="activity-chart-label"><span title={item.label}>{item.label}</span><strong>{formatHours(item.logged)} h loggate · {formatHours(item.confirmed)} h confermate</strong></div>
+                  <div className="activity-chart-track"><i className="external" style={{ width: `${otherHours ? item.logged / otherHours * 100 : 0}%` }} /></div>
+                  {item.planned > 0 && <><div className="activity-chart-plan-label"><span>Pianificate</span><strong>{formatHours(item.planned)} h</strong></div><div className="activity-chart-track"><i className="planned" style={{ width: `${otherPlannedHours ? item.planned / otherPlannedHours * 100 : 0}%` }} /></div></>}
+                </li>)}</ol>}
+                {clientLead && <p className="activity-chart-note">Cliente con più ore effettive: <strong>{clientLead.label}</strong> · {formatHours(clientLead.logged)} h su {clientLead.codes.size} commesse</p>}
+                {plannedClientLead && <p className="activity-chart-note">Cliente con più ore pianificate: <strong>{plannedClientLead.label}</strong> · {formatHours(plannedClientLead.planned)} h</p>}
               </section>
             </div>
           </div>
