@@ -17,7 +17,7 @@ TEAM_MEMBERS = {
 
 FIELD_CANDIDATES = {
     "date": ["data", "giorno", "postingdate", "workdate", "activitydate", "date"],
-    "person": ["componente", "risorsa", "nome", "nominativo", "dipendente", "utente", "resource", "resourcename", "employeename", "person", "member", "persona"],
+    "person": ["persona", "risorsa", "nome", "nominativo", "dipendente", "utente", "resource", "resourcename", "employeename", "person", "member", "componente"],
     "hours": ["oreloggate", "ore", "durata", "oreconsuntivate", "hours", "loggedhours", "quantity", "workinghours", "time"],
     "confirmed_hours": ["oreconfermate", "confirmedhours"],
     "unconfirmed_hours": ["orenonconfermate", "unconfirmedhours"],
