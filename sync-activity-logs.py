@@ -158,11 +158,8 @@ def main():
 
     # Collega ogni riga ZDT al dettaglio CRM/NAV tramite commessa, task e riga.
     jobs_path = Path("public/jobs.json")
-    resources_path = Path("public/resources.json")
     jobs = json.loads(jobs_path.read_text(encoding="utf-8")) if jobs_path.exists() else []
-    resources = json.loads(resources_path.read_text(encoding="utf-8")) if resources_path.exists() else []
-    resource_by_name = {normalize(item.get("Name", "")): normalize(item.get("No", "")) for item in resources}
-    jobs_by_key = {}
+    jobs_by_key = {};
     for job in jobs:
         key = (
             normalize_code(job.get("JobNo")),
@@ -181,11 +178,6 @@ def main():
         candidates = jobs_by_key.get(key, [])
         if not candidates:
             return None, "Commessa/task/riga non abbinati"
-
-        resource_no = resource_by_name.get(normalize(row.get(person_field, "")), "")
-        resource_matches = [item for item in candidates if resource_no and normalize(item.get("Resource No", "")) == resource_no]
-        if resource_matches:
-            candidates = resource_matches
 
         prices = {numeric(item.get("Unit Price")) for item in candidates}
         if None in prices or len(prices) != 1:
