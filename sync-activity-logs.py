@@ -5,8 +5,10 @@ import os
 import unicodedata
 from io import BytesIO
 from pathlib import Path
+from time import sleep
 
 import pandas as pd
+from azure.core.exceptions import ResourceModifiedError
 from azure.storage.blob import BlobServiceClient
 from dotenv import load_dotenv
 
@@ -81,6 +83,22 @@ def find_field(columns, kind):
     return None
 
 
+def download_blob_with_retry(blob_client, label, attempts=4):
+    """Retry a download if Azure replaces a blob while its chunks are being read."""
+    for attempt in range(1, attempts + 1):
+        content = BytesIO()
+        try:
+            blob_client.download_blob().readinto(content)
+            content.seek(0)
+            return content
+        except ResourceModifiedError:
+            if attempt == attempts:
+                raise
+            delay = attempt * 2
+            print(f"Blob aggiornato durante il download di {label}; nuovo tentativo tra {delay}s ({attempt + 1}/{attempts})")
+            sleep(delay)
+
+
 def main():
     load_dotenv()
     account = os.getenv("AZURE_ACTIVITY_STORAGE_ACCOUNT") or os.getenv("AZURE_STORAGE_ACCOUNT")
@@ -92,9 +110,7 @@ def main():
 
     connection = f"DefaultEndpointsProtocol=https;AccountName={account};AccountKey={key};EndpointSuffix=core.windows.net"
     client = BlobServiceClient.from_connection_string(connection).get_blob_client(container=container, blob=blob)
-    content = BytesIO()
-    client.download_blob().readinto(content)
-    content.seek(0)
+    content = download_blob_with_retry(client, f"{container}/{blob}")
     frame = pd.read_parquet(content)
     print(f"Colonne origine parquet: {', '.join(str(column) for column in frame.columns)}")
 
@@ -109,9 +125,7 @@ def main():
     detail_client = BlobServiceClient.from_connection_string(connection).get_blob_client(
         container=detail_container, blob=detail_blob
     )
-    detail_content = BytesIO()
-    detail_client.download_blob().readinto(detail_content)
-    detail_content.seek(0)
+    detail_content = download_blob_with_retry(detail_client, f"{detail_container}/{detail_blob}")
     detail_frame = pd.read_parquet(detail_content)
     print(f"Colonne dettaglio CRM: {', '.join(str(column) for column in detail_frame.columns)}")
 
