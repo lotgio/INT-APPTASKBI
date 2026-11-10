@@ -1,0 +1,43 @@
+.revenue-panel { overflow: hidden; border: 1px solid #e3e8ee; border-radius: 14px; background: #fff; box-shadow: 0 5px 16px rgba(16,33,53,.035); }
+.revenue-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 18px 20px; border-bottom: 1px solid #e8edf2; }
+.revenue-header > div { display: grid; gap: 4px; }
+.revenue-eyebrow { margin: 0; color: #69798d; font-size: 9px; font-weight: 700; letter-spacing: .08em; }
+.revenue-header h2 { margin: 0; color: #1e2c3b; font-size: 17px; }
+.revenue-header p:not(.revenue-eyebrow) { margin: 0; color: #7a8795; font-size: 11px; }
+.revenue-header > span, .revenue-section-heading > span { color: #6d7b8d; font-size: 11px; white-space: nowrap; }
+.revenue-kpis { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; padding: 14px 18px; background: #fbfcfd; border-bottom: 1px solid #edf0f3; }
+.revenue-kpis article { display: flex; flex-direction: column; gap: 5px; min-width: 0; padding: 12px 14px; border: 1px solid #e7ecf1; border-radius: 9px; background: #fff; }
+.revenue-kpis article span { color: #637285; font-size: 10px; }
+.revenue-kpis article strong { color: #172536; font-size: 22px; font-variant-numeric: tabular-nums; }
+.revenue-kpis article small { color: #8490a0; font-size: 9px; }
+.revenue-kpis .revenue-warning { color: #bf5b20; }
+.revenue-body { display: grid; grid-template-columns: minmax(260px,.7fr) minmax(0,1.7fr); gap: 14px; padding: 14px 18px; }
+.revenue-clients, .revenue-detail { min-width: 0; padding: 14px; border: 1px solid #e7ecf1; border-radius: 10px; }
+.revenue-section-heading { display: flex; justify-content: space-between; gap: 12px; padding-bottom: 12px; }
+.revenue-section-heading > div { display: grid; gap: 4px; }
+.revenue-section-heading h3 { margin: 0; color: #27384b; font-size: 13px; }
+.revenue-section-heading p { margin: 0; color: #7a8795; font-size: 10px; }
+.revenue-clients ol { display: grid; gap: 13px; margin: 0; padding: 0; list-style: none; }
+.revenue-clients li { display: grid; gap: 6px; }
+.revenue-clients li > div { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; color: #4b5969; font-size: 10px; }
+.revenue-clients li > div > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.revenue-clients li strong { flex: 0 0 auto; color: #27384b; font-size: 10px; }
+.revenue-clients li small { color: #8490a0; font-size: 9px; font-weight: 500; }
+.revenue-clients li > i { height: 7px; overflow: hidden; border-radius: 999px; background: #edf1f5; }
+.revenue-clients li > i b { display: block; height: 100%; border-radius: inherit; background: #16803c; }
+.revenue-table-wrap { overflow-x: auto; }
+.revenue-detail table { width: 100%; min-width: 850px; border-collapse: collapse; font-size: 10px; }
+.revenue-detail th, .revenue-detail td { padding: 9px 10px; text-align: left; vertical-align: top; border-bottom: 1px solid #edf0f3; }
+.revenue-detail th { color: #637285; background: #f7f9fb; font-size: 9px; text-transform: uppercase; letter-spacing: .04em; }
+.revenue-detail td { color: #37475a; font-variant-numeric: tabular-nums; }
+.revenue-detail td:nth-child(n+4) { white-space: nowrap; }
+.revenue-detail tr:last-child td { border-bottom: 0; }
+.revenue-detail td:nth-child(3) { min-width: 190px; }
+.revenue-detail td:nth-child(3) small, .revenue-source { display: block; margin-top: 3px; color: #8490a0; font-size: 9px; white-space: normal; }
+.revenue-badge { display: inline-block; padding: 3px 6px; border-radius: 5px; color: #166534; background: #e8f5eb; font-size: 9px; font-weight: 650; }
+.revenue-badge.unresolved { color: #9a4c13; background: #fff3df; }
+.revenue-unresolved { background: #fffaf2; }
+.revenue-empty { margin: 3px 0; color: #8490a0; font-size: 11px; }
+.revenue-footnote { padding: 0 20px 15px; color: #7a8795; font-size: 9px; line-height: 1.5; }
+@media (max-width: 950px) { .revenue-kpis { grid-template-columns: repeat(2,minmax(0,1fr)); } .revenue-body { grid-template-columns: 1fr; } }
+@media (max-width: 620px) { .revenue-header { padding: 14px; } .revenue-header > span { white-space: normal; text-align: right; } .revenue-kpis { padding: 10px; gap: 8px; } .revenue-kpis article { padding: 10px; } .revenue-kpis article strong { font-size: 18px; } .revenue-body { padding: 10px; } .revenue-footnote { padding: 0 12px 13px; } }
