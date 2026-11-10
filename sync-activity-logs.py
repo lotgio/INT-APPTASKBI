@@ -203,6 +203,12 @@ def main():
     daily["Stima fatturato"] = 0.0
     daily["Fonte ore stima"] = ""
     daily["Esito valorizzazione"] = ""
+
+    # Le ore CRM sono aggregate per dettaglio commessa, mentre ZDT ha una riga
+    # per data/attività. Conta quindi Enable Invoice una sola volta per risorsa,
+    # commessa/task/riga e mese, ripartendolo tra le righe ZDT secondo le ore
+    # loggate; altrimenti la stessa quantità CRM verrebbe duplicata ogni giorno.
+    invoice_groups = {}
     for index, row in daily.iterrows():
         match, status = resolve_job(row)
         logged_hours = numeric(row.get("Ore Loggate")) or 0
@@ -211,13 +217,34 @@ def main():
             continue
         daily.at[index, "Prezzo unitario NAV"] = match["price"]
         if match["enabled"]:
-            billable_hours = match["invoice_hours"]
+            period = pd.to_datetime(row.get(date_field), errors="coerce")
+            month_key = period.strftime("%Y-%m") if pd.notna(period) else str(row.get(date_field, ""))[:7]
+            key = (
+                month_key,
+                normalize(row.get(person_field, "")),
+                normalize_code(row.get("Codice commessa")),
+                normalize_code(row.get("Codice task")),
+                normalize_code(row.get("Numero riga commessa")),
+            )
+            invoice_groups.setdefault(key, []).append(
+                (index, logged_hours, match["invoice_hours"], match["price"])
+            )
             daily.at[index, "Fonte ore stima"] = "Ore Enable Invoicing CRM"
         else:
-            billable_hours = logged_hours
+            daily.at[index, "Ore valorizzate"] = logged_hours
+            daily.at[index, "Stima fatturato"] = logged_hours * match["price"]
             daily.at[index, "Fonte ore stima"] = "Durata loggata ZDT"
-        daily.at[index, "Ore valorizzate"] = billable_hours
-        daily.at[index, "Stima fatturato"] = billable_hours * match["price"]
+
+    for rows in invoice_groups.values():
+        total_logged = sum(item[1] for item in rows)
+        # Tutte le righe del gruppo risolvono lo stesso dettaglio CRM mensile;
+        # il totale enable invoice viene applicato una sola volta.
+        invoice_hours = rows[0][2]
+        for index, logged_hours, _, price in rows:
+            share = logged_hours / total_logged if total_logged > 0 else (1 if index == rows[0][0] else 0)
+            billable_hours = invoice_hours * share
+            daily.at[index, "Ore valorizzate"] = billable_hours
+            daily.at[index, "Stima fatturato"] = billable_hours * price
 
     daily = daily.rename(columns={date_field: "Data", person_field: "Componente"})
     records = daily.astype(object).where(pd.notna(daily), None).to_dict(orient="records")
