@@ -235,7 +235,7 @@ export default function ActivityCalendarPage() {
   const otherConfirmedHours = otherDetails.reduce((sum, item) => sum + item.confirmed, 0);
   const totalConfirmedJobHours = coigConfirmedHours + otherConfirmedHours;
   const totalPlannedJobHours = coigPlannedHours + otherPlannedHours;
-  const totalReportHours = totalConfirmedJobHours + totalPlannedJobHours;
+  const totalReportHours = totalConfirmedJobHours + totalPlannedJobHours;\n  const totalizerScale = Math.max(1, coigConfirmedHours + coigPlannedHours, otherConfirmedHours + otherPlannedHours);
   const coigConfirmedShare = totalReportHours ? coigConfirmedHours / totalReportHours * 100 : 0;
   const otherConfirmedShare = totalReportHours ? otherConfirmedHours / totalReportHours * 100 : 0;
   const coigPlannedShare = totalReportHours ? coigPlannedHours / totalReportHours * 100 : 0;
@@ -420,17 +420,23 @@ export default function ActivityCalendarPage() {
           <div className="activity-analysis">
             <div className="activity-balance-card">
               <div className="activity-balance-heading"><div><strong>Confermate e pianificate</strong><small>{balanceLabel}</small></div><span>{formatHours(totalReportHours)} h totali</span></div>
-              <div className="activity-balance-track activity-balance-combined" role="img" aria-label={`Totale: ${formatHours(coigConfirmedHours)} ore COIG confermate, ${formatHours(otherConfirmedHours)} ore non COIG confermate, ${formatHours(coigPlannedHours)} ore COIG pianificate, ${formatHours(otherPlannedHours)} ore non COIG pianificate`}>
-                <span className="activity-balance-coig" title={`COIG confermate: ${formatHours(coigConfirmedHours)} h`} style={{ width: `${coigConfirmedShare}%` }} />
-                <span className="activity-balance-external" title={`Non COIG confermate: ${formatHours(otherConfirmedHours)} h`} style={{ width: `${otherConfirmedShare}%` }} />
-                <span className="activity-balance-planned-coig" title={`COIG pianificate: ${formatHours(coigPlannedHours)} h`} style={{ width: `${coigPlannedShare}%` }} />
-                <span className="activity-balance-planned-external" title={`Non COIG pianificate: ${formatHours(otherPlannedHours)} h`} style={{ width: `${otherPlannedShare}%` }} />
-              </div>
-              <div className="activity-balance-legend activity-balance-combined-legend">
-                <span><i className="activity-dot coig" />Interne COIG <strong>{formatHours(coigConfirmedHours)} h confermate</strong></span>
-                <span><i className="activity-dot external" />Non COIG <strong>{formatHours(otherConfirmedHours)} h confermate</strong></span>
-                <span><i className="activity-dot planned-coig" />Interne COIG <strong>{formatHours(coigPlannedHours)} h pianificate</strong></span>
-                <span><i className="activity-dot planned-external" />Non COIG <strong>{formatHours(otherPlannedHours)} h pianificate</strong></span>
+              <div className="activity-balance-rows" aria-label={`Ore confermate e pianificate: COIG ${formatHours(coigConfirmedHours)} confermate e ${formatHours(coigPlannedHours)} pianificate; non COIG ${formatHours(otherConfirmedHours)} confermate e ${formatHours(otherPlannedHours)} pianificate`}>
+                <div className="activity-balance-row">
+                  <div className="activity-balance-row-heading"><strong>Interne · COIG</strong><b>{formatHours(coigConfirmedHours + coigPlannedHours)} h totali</b></div>
+                  <div className="activity-balance-track activity-balance-pair" role="img" aria-label={`COIG: ${formatHours(coigConfirmedHours)} h confermate e ${formatHours(coigPlannedHours)} h pianificate`}>
+                    <span className="activity-balance-coig" title={`Confermate: ${formatHours(coigConfirmedHours)} h`} style={{ width: `${coigConfirmedHours / totalizerScale * 100}%` }} />
+                    <span className="activity-balance-planned-coig" title={`Pianificate: ${formatHours(coigPlannedHours)} h`} style={{ width: `${coigPlannedHours / totalizerScale * 100}%` }} />
+                  </div>
+                  <div className="activity-balance-values"><span><i className="activity-swatch confirmed-coig" />Confermate <strong>{formatHours(coigConfirmedHours)} h</strong></span><span><i className="activity-swatch planned-coig" />Pianificate <strong>{formatHours(coigPlannedHours)} h</strong></span></div>
+                </div>
+                <div className="activity-balance-row">
+                  <div className="activity-balance-row-heading"><strong>Non COIG</strong><b>{formatHours(otherConfirmedHours + otherPlannedHours)} h totali</b></div>
+                  <div className="activity-balance-track activity-balance-pair" role="img" aria-label={`Non COIG: ${formatHours(otherConfirmedHours)} h confermate e ${formatHours(otherPlannedHours)} h pianificate`}>
+                    <span className="activity-balance-external" title={`Confermate: ${formatHours(otherConfirmedHours)} h`} style={{ width: `${otherConfirmedHours / totalizerScale * 100}%` }} />
+                    <span className="activity-balance-planned-external" title={`Pianificate: ${formatHours(otherPlannedHours)} h`} style={{ width: `${otherPlannedHours / totalizerScale * 100}%` }} />
+                  </div>
+                  <div className="activity-balance-values"><span><i className="activity-swatch confirmed-external" />Confermate <strong>{formatHours(otherConfirmedHours)} h</strong></span><span><i className="activity-swatch planned-external" />Pianificate <strong>{formatHours(otherPlannedHours)} h</strong></span></div>
+                </div>
               </div>
             </div>
             <div className="activity-concentration-grid">
