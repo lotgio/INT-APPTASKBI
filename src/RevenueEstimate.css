@@ -56,3 +56,8 @@
 .revenue-totalizer-breakdown span { color: #748195; font-size: 9px; }
 .revenue-totalizer-breakdown b { display: block; margin-top: 2px; color: #34465b; font-size: 10px; font-weight: 650; font-variant-numeric: tabular-nums; }
 @media (max-width: 620px) { .revenue-totalizer-breakdown { grid-template-columns: 1fr; gap: 6px; } }
+
+.revenue-planned-clients { margin-top: 15px; padding-top: 12px; border-top: 1px solid #edf0f3; }
+.revenue-planned-clients .revenue-section-heading { padding-bottom: 10px; }
+.revenue-planned-clients li > small { color: #8490a0; font-size: 9px; }
+.revenue-planned-clients li > i b { background: #7b61c9; }
