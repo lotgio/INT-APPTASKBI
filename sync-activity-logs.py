@@ -320,6 +320,11 @@ def main():
         billable_hours = billable_by_activity[detail_key]
         matched_detail_rows += 1
         confirmed_hours = min(confirmed_billable_by_activity.get(detail_key, 0.0), billable_hours)
+        if not detail_confirmed:
+            logged_hours = max(numeric(row.get("Ore Loggate")) or 0.0, 0.0)
+            confirmed_logged_hours = max(numeric(row.get("Ore Confermate")) or 0.0, 0.0)
+            confirmed_share = min(confirmed_logged_hours / logged_hours, 1.0) if logged_hours else 0.0
+            confirmed_hours = billable_hours * confirmed_share
         daily.at[index, "Ore valorizzate"] = billable_hours
         daily.at[index, "Ore valorizzate confermate"] = confirmed_hours
         if match:
