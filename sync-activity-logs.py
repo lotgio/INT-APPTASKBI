@@ -183,9 +183,12 @@ def main():
             return None, "Commessa/task/riga non abbinati"
 
         resource_no = resource_by_name.get(normalize(row.get(person_field, "")), "")
-        resource_matches = [item for item in candidates if resource_no and normalize(item.get("Resource No", "")) == resource_no]
-        if resource_matches:
-            candidates = resource_matches
+        if not resource_no:
+            return None, "Risorsa CRM non disponibile"
+        resource_matches = [item for item in candidates if normalize(item.get("Resource No", "")) == resource_no]
+        if not resource_matches:
+            return None, "Riga CRM non associata alla risorsa"
+        candidates = resource_matches
 
         prices = {numeric(item.get("Unit Price")) for item in candidates}
         if None in prices or len(prices) != 1:
@@ -211,9 +214,7 @@ def main():
             continue
         daily.at[index, "Prezzo unitario NAV"] = match["price"]
         if match["enabled"]:
-            invoice_hours = match["invoice_hours"]
-            crm_logged = match["crm_logged"]
-            billable_hours = min(logged_hours, invoice_hours * logged_hours / crm_logged) if crm_logged > 0 else min(logged_hours, invoice_hours)
+            billable_hours = match["invoice_hours"]
             daily.at[index, "Fonte ore stima"] = "Ore Enable Invoicing CRM"
         else:
             billable_hours = logged_hours
