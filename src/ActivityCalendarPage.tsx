@@ -240,8 +240,6 @@ export default function ActivityCalendarPage() {
   const otherConfirmedShare = totalReportHours ? otherConfirmedHours / totalReportHours * 100 : 0;
   const coigPlannedShare = totalReportHours ? coigPlannedHours / totalReportHours * 100 : 0;
   const otherPlannedShare = totalReportHours ? otherPlannedHours / totalReportHours * 100 : 0;
-  const internalChartMax = Math.max(1, ...internalActivitySummary.map((item) => item.confirmed + item.planned));
-  const clientChartMax = Math.max(1, ...clientSummary.map((item) => item.confirmed + item.planned));
   const internalReportHours = coigConfirmedHours + coigPlannedHours;
   const externalReportHours = otherConfirmedHours + otherPlannedHours;
   const internalActivitySummary = useMemo(() => {
@@ -272,6 +270,8 @@ export default function ActivityCalendarPage() {
     otherPlannedDetails.forEach((item) => add(item, true));
     return [...groups.values()].sort((a, b) => (b.logged + b.planned) - (a.logged + a.planned) || a.label.localeCompare(b.label, "it"));
   }, [otherDetails, otherPlannedDetails]);
+  const internalChartMax = Math.max(1, ...internalActivitySummary.map((item) => item.confirmed + item.planned));
+  const clientChartMax = Math.max(1, ...clientSummary.map((item) => item.confirmed + item.planned));
   const internalLead = [...internalActivitySummary].filter((item) => item.confirmed > 0).sort((a, b) => b.confirmed - a.confirmed)[0];
   const plannedInternalLead = [...internalActivitySummary].filter((item) => item.planned > 0).sort((a, b) => b.planned - a.planned)[0];
   const clientLead = [...clientSummary].filter((item) => item.confirmed > 0).sort((a, b) => b.confirmed - a.confirmed)[0];
