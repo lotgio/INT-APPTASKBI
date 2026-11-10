@@ -235,7 +235,8 @@ export default function ActivityCalendarPage() {
   const otherConfirmedHours = otherDetails.reduce((sum, item) => sum + item.confirmed, 0);
   const totalConfirmedJobHours = coigConfirmedHours + otherConfirmedHours;
   const totalPlannedJobHours = coigPlannedHours + otherPlannedHours;
-  const totalReportHours = totalConfirmedJobHours + totalPlannedJobHours;\n  const totalizerScale = Math.max(1, coigConfirmedHours + coigPlannedHours, otherConfirmedHours + otherPlannedHours);
+  const totalReportHours = totalConfirmedJobHours + totalPlannedJobHours;
+  const totalizerScale = Math.max(1, coigConfirmedHours + coigPlannedHours, otherConfirmedHours + otherPlannedHours);
   const coigConfirmedShare = totalReportHours ? coigConfirmedHours / totalReportHours * 100 : 0;
   const otherConfirmedShare = totalReportHours ? otherConfirmedHours / totalReportHours * 100 : 0;
   const coigPlannedShare = totalReportHours ? coigPlannedHours / totalReportHours * 100 : 0;
