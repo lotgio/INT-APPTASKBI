@@ -78,8 +78,7 @@ jobs:
         run: |
           python sync-jobs.py && echo "SYNC_SOURCE=azure" >> $GITHUB_ENV || echo "SYNC_SOURCE=none" >> $GITHUB_ENV
 
-      - name: Sync daily activity logs from Azure Blob
-        continue-on-error: true
+      - name: Sync daily activity logs and CRM activity detail from Azure Blob
         run: python sync-activity-logs.py
 
       - name: Check resources.json
