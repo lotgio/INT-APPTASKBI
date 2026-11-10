@@ -13,6 +13,9 @@ from dotenv import load_dotenv
 TEAM_MEMBERS = {
     "lotta giorgia", "favero matteo", "stocco alberto", "vita anna",
     "mason mauro", "padovan matteo", "micheletto nicola",
+    "albanese lorenzo", "brigo matteo", "brotto fabio", "cecchin chiara",
+    "cestaro luca", "dian enrico", "luise alessandro", "marino daniele",
+    "verzotto maria", "rampazzo lisa", "sarto michele", "omodei cesare",
 }
 
 FIELD_CANDIDATES = {
