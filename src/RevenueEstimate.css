@@ -11,6 +11,16 @@
 .revenue-kpis article strong { color: #172536; font-size: 22px; font-variant-numeric: tabular-nums; }
 .revenue-kpis article small { color: #8490a0; font-size: 9px; }
 .revenue-kpis .revenue-warning { color: #bf5b20; }
+
+.revenue-totalizers { padding: 0 18px 14px; }
+.revenue-totalizers-title { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin: 0 0 8px; }
+.revenue-totalizers-title h3 { margin: 0; color: #27384b; font-size: 12px; }
+.revenue-totalizers-title span { color: #8490a0; font-size: 9px; }
+.revenue-totalizers-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }
+.revenue-totalizers-grid article { display: flex; flex-direction: column; gap: 4px; padding: 10px 13px; border: 1px solid #e7ecf1; border-left: 3px solid #d58b28; border-radius: 8px; background: #fffaf2; }
+.revenue-totalizers-grid article span { color: #637285; font-size: 9px; }
+.revenue-totalizers-grid article strong { color: #172536; font-size: 19px; font-variant-numeric: tabular-nums; }
+.revenue-totalizers-grid article small { color: #8490a0; font-size: 9px; }
 .revenue-body { display: grid; grid-template-columns: minmax(260px,.7fr) minmax(0,1.7fr); gap: 14px; padding: 14px 18px; }
 .revenue-clients, .revenue-detail { min-width: 0; padding: 14px; border: 1px solid #e7ecf1; border-radius: 10px; }
 .revenue-section-heading { display: flex; justify-content: space-between; gap: 12px; padding-bottom: 12px; }
@@ -39,5 +49,5 @@
 .revenue-unresolved { background: #fffaf2; }
 .revenue-empty { margin: 3px 0; color: #8490a0; font-size: 11px; }
 .revenue-footnote { padding: 0 20px 15px; color: #7a8795; font-size: 9px; line-height: 1.5; }
-@media (max-width: 950px) { .revenue-kpis { grid-template-columns: repeat(2,minmax(0,1fr)); } .revenue-body { grid-template-columns: 1fr; } }
-@media (max-width: 620px) { .revenue-header { padding: 14px; } .revenue-header > span { white-space: normal; text-align: right; } .revenue-kpis { padding: 10px; gap: 8px; } .revenue-kpis article { padding: 10px; } .revenue-kpis article strong { font-size: 18px; } .revenue-body { padding: 10px; } .revenue-footnote { padding: 0 12px 13px; } }
+@media (max-width: 950px) { .revenue-totalizers-grid { grid-template-columns: 1fr; } .revenue-kpis { grid-template-columns: repeat(2,minmax(0,1fr)); } .revenue-body { grid-template-columns: 1fr; } }
+@media (max-width: 620px) { .revenue-header { padding: 14px; } .revenue-totalizers { padding: 0 10px 10px; } .revenue-totalizers-title { align-items: flex-start; flex-direction: column; gap: 3px; } .revenue-header > span { white-space: normal; text-align: right; } .revenue-kpis { padding: 10px; gap: 8px; } .revenue-kpis article { padding: 10px; } .revenue-kpis article strong { font-size: 18px; } .revenue-body { padding: 10px; } .revenue-footnote { padding: 0 12px 13px; } }
