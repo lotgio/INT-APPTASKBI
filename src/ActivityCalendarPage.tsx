@@ -231,12 +231,19 @@ export default function ActivityCalendarPage() {
   const otherHours = otherDetails.reduce((sum, item) => sum + item.logged, 0);
   const coigPlannedHours = coigPlannedDetails.reduce((sum, item) => sum + (item.planned || 0), 0);
   const otherPlannedHours = otherPlannedDetails.reduce((sum, item) => sum + (item.planned || 0), 0);
-  const totalJobHours = coigHours + otherHours;
+  const coigConfirmedHours = coigDetails.reduce((sum, item) => sum + item.confirmed, 0);
+  const otherConfirmedHours = otherDetails.reduce((sum, item) => sum + item.confirmed, 0);
+  const totalConfirmedJobHours = coigConfirmedHours + otherConfirmedHours;
   const totalPlannedJobHours = coigPlannedHours + otherPlannedHours;
-  const coigShare = totalJobHours ? coigHours / totalJobHours * 100 : 0;
-  const otherShare = totalJobHours ? otherHours / totalJobHours * 100 : 0;
-  const coigPlannedShare = totalPlannedJobHours ? coigPlannedHours / totalPlannedJobHours * 100 : 0;
-  const otherPlannedShare = totalPlannedJobHours ? otherPlannedHours / totalPlannedJobHours * 100 : 0;
+  const totalReportHours = totalConfirmedJobHours + totalPlannedJobHours;
+  const coigConfirmedShare = totalReportHours ? coigConfirmedHours / totalReportHours * 100 : 0;
+  const otherConfirmedShare = totalReportHours ? otherConfirmedHours / totalReportHours * 100 : 0;
+  const coigPlannedShare = totalReportHours ? coigPlannedHours / totalReportHours * 100 : 0;
+  const otherPlannedShare = totalReportHours ? otherPlannedHours / totalReportHours * 100 : 0;
+  const internalChartMax = Math.max(1, ...internalActivitySummary.map((item) => item.confirmed + item.planned));
+  const clientChartMax = Math.max(1, ...clientSummary.map((item) => item.confirmed + item.planned));
+  const internalReportHours = coigConfirmedHours + coigPlannedHours;
+  const externalReportHours = otherConfirmedHours + otherPlannedHours;
   const internalActivitySummary = useMemo(() => {
     const groups = new Map<string, ActivitySummary>();
     const add = (item: JobDetail, planned = false) => {
@@ -265,11 +272,11 @@ export default function ActivityCalendarPage() {
     otherPlannedDetails.forEach((item) => add(item, true));
     return [...groups.values()].sort((a, b) => (b.logged + b.planned) - (a.logged + a.planned) || a.label.localeCompare(b.label, "it"));
   }, [otherDetails, otherPlannedDetails]);
-  const internalLead = [...internalActivitySummary].filter((item) => item.logged > 0).sort((a, b) => b.logged - a.logged)[0];
+  const internalLead = [...internalActivitySummary].filter((item) => item.confirmed > 0).sort((a, b) => b.confirmed - a.confirmed)[0];
   const plannedInternalLead = [...internalActivitySummary].filter((item) => item.planned > 0).sort((a, b) => b.planned - a.planned)[0];
-  const clientLead = [...clientSummary].filter((item) => item.logged > 0).sort((a, b) => b.logged - a.logged)[0];
+  const clientLead = [...clientSummary].filter((item) => item.confirmed > 0).sort((a, b) => b.confirmed - a.confirmed)[0];
   const plannedClientLead = [...clientSummary].filter((item) => item.planned > 0).sort((a, b) => b.planned - a.planned)[0];
-  const balanceLabel = !totalJobHours ? (totalPlannedJobHours ? "Nessuna ora effettiva; sono presenti ore pianificate" : "Nessuna ora registrata") : coigHours === otherHours ? "Ore interne ed esterne equivalenti" : coigHours > otherHours ? `Prevalgono le attività interne di ${formatHours(coigHours - otherHours)} h` : `Prevalgono le attività non COIG di ${formatHours(otherHours - coigHours)} h`;
+  const balanceLabel = !totalReportHours ? "Nessuna ora confermata o pianificata" : internalReportHours === externalReportHours ? "Ore interne ed esterne equivalenti" : internalReportHours > externalReportHours ? `Prevalgono le attività interne di ${formatHours(internalReportHours - externalReportHours)} h` : `Prevalgono le attività non COIG di ${formatHours(externalReportHours - internalReportHours)} h`;
 
   const alerts = useMemo(() => {
     if (!firstActivityDate) return [] as ActivityAlert[];
@@ -412,38 +419,37 @@ export default function ActivityCalendarPage() {
           <header><div><h2>Dove si concentrano le attività</h2><p>{selectedPerson} · {monthName} · ore registrate fino a oggi</p></div><span>{jobDetails.length} voci di dettaglio</span></header>
           <div className="activity-analysis">
             <div className="activity-balance-card">
-              <div className="activity-balance-heading"><div><strong>Ripartizione delle ore</strong><small>{balanceLabel}</small></div><span>{formatHours(totalJobHours)} h effettive</span></div>
-              <div className="activity-balance-track" role="img" aria-label={`Ore effettive: interne ${coigShare.toFixed(0)}%, non COIG ${otherShare.toFixed(0)}%`}>
-                <span className="activity-balance-coig" style={{ width: `${coigShare}%` }} />
-                <span className="activity-balance-external" style={{ width: `${otherShare}%` }} />
+              <div className="activity-balance-heading"><div><strong>Confermate e pianificate</strong><small>{balanceLabel}</small></div><span>{formatHours(totalReportHours)} h totali</span></div>
+              <div className="activity-balance-track activity-balance-combined" role="img" aria-label={`Totale: ${formatHours(coigConfirmedHours)} ore COIG confermate, ${formatHours(otherConfirmedHours)} ore non COIG confermate, ${formatHours(coigPlannedHours)} ore COIG pianificate, ${formatHours(otherPlannedHours)} ore non COIG pianificate`}>
+                <span className="activity-balance-coig" title={`COIG confermate: ${formatHours(coigConfirmedHours)} h`} style={{ width: `${coigConfirmedShare}%` }} />
+                <span className="activity-balance-external" title={`Non COIG confermate: ${formatHours(otherConfirmedHours)} h`} style={{ width: `${otherConfirmedShare}%` }} />
+                <span className="activity-balance-planned-coig" title={`COIG pianificate: ${formatHours(coigPlannedHours)} h`} style={{ width: `${coigPlannedShare}%` }} />
+                <span className="activity-balance-planned-external" title={`Non COIG pianificate: ${formatHours(otherPlannedHours)} h`} style={{ width: `${otherPlannedShare}%` }} />
               </div>
-              <div className="activity-balance-legend"><span><i className="activity-dot coig" />Interne COIG <strong>{formatHours(coigHours)} h loggate · {formatHours(coigDetails.reduce((sum, item) => sum + item.confirmed, 0))} h confermate</strong></span><span><i className="activity-dot external" />Non COIG <strong>{formatHours(otherHours)} h loggate · {formatHours(otherDetails.reduce((sum, item) => sum + item.confirmed, 0))} h confermate</strong></span></div>
-              <div className="activity-planned-balance-heading"><strong>Ore pianificate da domani</strong><span>{formatHours(totalPlannedJobHours)} h</span></div>
-              <div className="activity-balance-track activity-balance-planned-track" role="img" aria-label={`Ore pianificate: interne ${formatHours(coigPlannedHours)} ore, non COIG ${formatHours(otherPlannedHours)} ore`}>
-                <span className="activity-balance-planned-coig" style={{ width: `${coigPlannedShare}%` }} />
-                <span className="activity-balance-planned-external" style={{ width: `${otherPlannedShare}%` }} />
+              <div className="activity-balance-legend activity-balance-combined-legend">
+                <span><i className="activity-dot coig" />Interne COIG <strong>{formatHours(coigConfirmedHours)} h confermate</strong></span>
+                <span><i className="activity-dot external" />Non COIG <strong>{formatHours(otherConfirmedHours)} h confermate</strong></span>
+                <span><i className="activity-dot planned-coig" />Interne COIG <strong>{formatHours(coigPlannedHours)} h pianificate</strong></span>
+                <span><i className="activity-dot planned-external" />Non COIG <strong>{formatHours(otherPlannedHours)} h pianificate</strong></span>
               </div>
-              <div className="activity-balance-legend activity-planned-legend"><span><i className="activity-dot planned-coig" />Interne COIG <strong>{formatHours(coigPlannedHours)} h pianificate</strong></span><span><i className="activity-dot planned-external" />Non COIG <strong>{formatHours(otherPlannedHours)} h pianificate</strong></span></div>
             </div>
             <div className="activity-concentration-grid">
               <section className="activity-chart-card">
                 <header><div><h3>Attività interne · COIG</h3><p>Ripartizione per attività</p></div><span>{internalActivitySummary.length} attività</span></header>
                 {internalActivitySummary.length === 0 ? <p className="activity-chart-empty">Nessuna attività interna nel periodo.</p> : <ol>{internalActivitySummary.slice(0, 7).map((item) => <li key={item.label}>
-                  <div className="activity-chart-label"><span title={item.label}>{item.label}</span><strong>{formatHours(item.logged)} h loggate · {formatHours(item.confirmed)} h confermate</strong></div>
-                  <div className="activity-chart-track"><i className="coig" style={{ width: `${coigHours ? item.logged / coigHours * 100 : 0}%` }} /></div>
-                  {item.planned > 0 && <><div className="activity-chart-plan-label"><span>Pianificate</span><strong>{formatHours(item.planned)} h</strong></div><div className="activity-chart-track"><i className="planned" style={{ width: `${coigPlannedHours ? item.planned / coigPlannedHours * 100 : 0}%` }} /></div></>}
+                  <div className="activity-chart-label"><span title={item.label}>{item.label}</span><strong>{formatHours(item.confirmed)} h confermate · {formatHours(item.planned)} h pianificate</strong></div>
+                  <div className="activity-chart-track activity-chart-combined"><i className="coig" style={{ width: `${item.confirmed / internalChartMax * 100}%` }} /><i className="coig-planned" style={{ width: `${item.planned / internalChartMax * 100}%` }} /></div>
                 </li>)}</ol>}
-                {internalLead && <p className="activity-chart-note">Maggiore attività effettiva: <strong>{internalLead.label}</strong> · {formatHours(internalLead.logged)} h</p>}
+                {internalLead && <p className="activity-chart-note">Maggiore attività effettiva: <strong>{internalLead.label}</strong> · {formatHours(internalLead.confirmed)} h confermate</p>}
                 {plannedInternalLead && <p className="activity-chart-note">Più ore pianificate: <strong>{plannedInternalLead.label}</strong> · {formatHours(plannedInternalLead.planned)} h</p>}
               </section>
               <section className="activity-chart-card">
                 <header><div><h3>Attività non COIG</h3><p>Raggruppate per cliente</p></div><span>{clientSummary.length} clienti</span></header>
                 {clientSummary.length === 0 ? <p className="activity-chart-empty">Nessuna attività non COIG nel periodo.</p> : <ol>{clientSummary.slice(0, 7).map((item) => <li key={item.label}>
-                  <div className="activity-chart-label"><span title={item.label}>{item.label}</span><strong>{formatHours(item.logged)} h loggate · {formatHours(item.confirmed)} h confermate</strong></div>
-                  <div className="activity-chart-track"><i className="external" style={{ width: `${otherHours ? item.logged / otherHours * 100 : 0}%` }} /></div>
-                  {item.planned > 0 && <><div className="activity-chart-plan-label"><span>Pianificate</span><strong>{formatHours(item.planned)} h</strong></div><div className="activity-chart-track"><i className="planned" style={{ width: `${otherPlannedHours ? item.planned / otherPlannedHours * 100 : 0}%` }} /></div></>}
+                  <div className="activity-chart-label"><span title={item.label}>{item.label}</span><strong>{formatHours(item.confirmed)} h confermate · {formatHours(item.planned)} h pianificate</strong></div>
+                  <div className="activity-chart-track activity-chart-combined"><i className="external" style={{ width: `${item.confirmed / clientChartMax * 100}%` }} /><i className="external-planned" style={{ width: `${item.planned / clientChartMax * 100}%` }} /></div>
                 </li>)}</ol>}
-                {clientLead && <p className="activity-chart-note">Cliente con più ore effettive: <strong>{clientLead.label}</strong> · {formatHours(clientLead.logged)} h su {clientLead.codes.size} commesse</p>}
+                {clientLead && <p className="activity-chart-note">Cliente con più ore effettive: <strong>{clientLead.label}</strong> · {formatHours(clientLead.confirmed)} h confermate su {clientLead.codes.size} commesse</p>}
                 {plannedClientLead && <p className="activity-chart-note">Cliente con più ore pianificate: <strong>{plannedClientLead.label}</strong> · {formatHours(plannedClientLead.planned)} h</p>}
               </section>
             </div>
