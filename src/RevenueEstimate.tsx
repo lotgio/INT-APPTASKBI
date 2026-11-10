@@ -120,7 +120,7 @@ export default function RevenueEstimate({ records, person, monthPrefix, todayKey
             </table></div>}
         </section>
       </div>
-      <footer className="revenue-footnote">Le ore CRM abilitate alla fatturazione sono ripartite in proporzione alle ore CRM loggate della stessa commessa/task/riga; se la commessa non è abilitata si usa l’intera durata loggata. La stima non è un importo fatturato.</footer>
+      <footer className="revenue-footnote">Le ore Enable Invoice CRM sono sommate una sola volta per commessa/task/riga nel mese; se non sono presenti, si usa la durata ZDT. La stima non è un importo fatturato.</footer>
     </section>
   );
 }
