@@ -259,6 +259,26 @@ def main():
     has_detail_confirmations = bool(
         detail_confirmed and detail_frame[detail_confirmed].map(as_bool).any()
     )
+
+    # Diagnostica temporanea: confronto le conferme giornaliere del riepilogo
+    # con i flag presenti nel dettaglio ZDT per Vita Anna.
+    detail_minutes = next(
+        (column for column in detail_frame.columns if normalize(column) in {"minutizdt", "loggedminutes"}),
+        None,
+    )
+    for day_key in ("2026-11-02", "2026-11-03", "2026-11-04", "2026-11-05", "2026-11-06"):
+        src_days = pd.to_datetime(frame[date_field], errors="coerce", dayfirst=True).dt.strftime("%Y-%m-%d")
+        src_mask = frame[person_field].map(normalize).eq(normalize("Vita Anna")) & src_days.eq(day_key)
+        src_confirmed = pd.to_numeric(frame.loc[src_mask, fields["confirmed_hours"]], errors="coerce").fillna(0).sum()
+        det_days = pd.to_datetime(detail_frame[detail_date], errors="coerce", dayfirst=True).dt.strftime("%Y-%m-%d")
+        det_mask = detail_frame[detail_person].map(normalize).eq(normalize("Vita Anna")) & det_days.eq(day_key)
+        det_count = int(det_mask.sum())
+        det_true = int(detail_frame.loc[det_mask, detail_confirmed].map(as_bool).sum()) if detail_confirmed else 0
+        det_confirmed_minutes = (
+            pd.to_numeric(detail_frame.loc[det_mask & detail_frame[detail_confirmed].map(as_bool), detail_minutes], errors="coerce").fillna(0).sum()
+            if detail_confirmed and detail_minutes else 0
+        )
+        print(f"Diagnostica conferme Anna {day_key}: riepilogo={src_confirmed:g}h; dettaglio={det_count} righe, {det_true} confermate, {det_confirmed_minutes:g} minuti confermati")
     required_detail = {
         "data": detail_date, "componente": detail_person, "commessa": detail_job,
         "task": detail_task, "riga": detail_plan,
