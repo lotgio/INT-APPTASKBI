@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { TEAM_MEMBERS, type TeamGroup } from "./teamMembers";
 import "./RevenueEstimate.css";
 
 type Row = Record<string, unknown>;
@@ -35,11 +36,18 @@ const eur = (value: number) => value.toLocaleString("it-IT", { style: "currency"
 export default function RevenueEstimate({ records, person, group, groupMembers, monthPrefix, todayKey }: {
   records: Row[];
   person: string;
-  group: string;
-  groupMembers: string[];
+  group?: TeamGroup;
+  groupMembers?: string[];
   monthPrefix: string;
   todayKey: string;
 }) {
+  const inferredGroup = (Object.entries(TEAM_MEMBERS).find(([, members]) =>
+    members.some((member) => norm(member) === norm(person))
+  )?.[0] || "BI") as TeamGroup;
+  const resolvedGroup = group && TEAM_MEMBERS[group] ? group : inferredGroup;
+  const resolvedGroupMembers = Array.isArray(groupMembers) && groupMembers.length > 0
+    ? groupMembers
+    : TEAM_MEMBERS[resolvedGroup];
   const lines = useMemo(() => {
     const grouped = new Map<string, RevenueLine>();
     records.forEach((row) => {
@@ -70,7 +78,7 @@ export default function RevenueEstimate({ records, person, group, groupMembers, 
 
   const economicTotals = useMemo(() => {
     const year = monthPrefix.slice(0, 4);
-    const members = new Set(groupMembers.map(norm));
+    const members = new Set(resolvedGroupMembers.map(norm));
     let personYear = 0;
     let groupMonth = 0;
     let groupYear = 0;
@@ -85,7 +93,7 @@ export default function RevenueEstimate({ records, person, group, groupMembers, 
       }
     });
     return { year, personYear, groupMonth, groupYear };
-  }, [records, person, group, groupMembers, monthPrefix, todayKey]);
+  }, [records, person, resolvedGroup, resolvedGroupMembers, monthPrefix, todayKey]);
 
   const totals = lines.reduce((sum, line) => ({
     logged: sum.logged + line.logged,
@@ -123,8 +131,8 @@ export default function RevenueEstimate({ records, person, group, groupMembers, 
         <div className="revenue-totalizers-title"><h3>Totalizzatori economici</h3><span>Stime registrate fino a oggi · {economicTotals.year}</span></div>
         <div className="revenue-totalizers-grid">
           <article><span>Persona · anno</span><strong>{eur(economicTotals.personYear)}</strong><small>{person} · {economicTotals.year}</small></article>
-          <article><span>Gruppo {group} · mese</span><strong>{eur(economicTotals.groupMonth)}</strong><small>{monthPrefix}</small></article>
-          <article><span>Gruppo {group} · anno</span><strong>{eur(economicTotals.groupYear)}</strong><small>{economicTotals.year}</small></article>
+          <article><span>Gruppo {resolvedGroup} · mese</span><strong>{eur(economicTotals.groupMonth)}</strong><small>{monthPrefix}</small></article>
+          <article><span>Gruppo {resolvedGroup} · anno</span><strong>{eur(economicTotals.groupYear)}</strong><small>{economicTotals.year}</small></article>
         </div>
       </section>
       <div className="revenue-body">
