@@ -27,6 +27,8 @@ FIELD_CANDIDATES = {
     "confirmed_minutes": ["minuticonfermati", "confirmedminutes"],
     "unconfirmed_minutes": ["minutinonconfermati", "unconfirmedminutes"],
     "job_code": ["commessa", "codicecommessa", "commessacodice", "numerocommessa", "jobno", "jobnumber", "jobcode", "job"],
+    "task_code": ["jobtaskno", "codicetask", "task"],
+    "plan_code": ["rigacommessa", "jobplanno", "numerorigacommessa"],
     "job_name": ["descrizionecommessa", "nomecommessa", "commessadescrizione", "descrizioneriga", "jobname", "jobdescription", "description"],
     "activity_name": ["descrizionetask", "descrizioneattivita", "nomeattivita", "activitydescription", "activityname", "taskdescription", "task"],
 }
@@ -35,6 +37,33 @@ FIELD_CANDIDATES = {
 def normalize(value):
     decomposed = unicodedata.normalize("NFD", str(value).casefold())
     return "".join(char for char in decomposed if char.isalnum() and not unicodedata.combining(char))
+
+
+def normalize_code(value):
+    text = str(value or "").strip()
+    try:
+        numeric_value = float(text.replace(",", "."))
+        if numeric_value.is_integer():
+            text = str(int(numeric_value))
+    except (TypeError, ValueError):
+        pass
+    return normalize(text)
+
+
+def numeric(value):
+    try:
+        parsed = pd.to_numeric(value, errors="coerce")
+        return None if pd.isna(parsed) else float(parsed)
+    except (TypeError, ValueError):
+        return None
+
+
+def as_bool(value):
+    if isinstance(value, bool):
+        return value
+    if value is None or pd.isna(value):
+        return False
+    return normalize(value) in {"1", "true", "si", "yes", "y"}
 
 
 def find_field(columns, kind):
@@ -75,6 +104,8 @@ def main():
     daily = frame[[date_field, person_field]].copy()
     detail_fields = {
         "Codice commessa": fields.get("job_code"),
+        "Codice task": fields.get("task_code"),
+        "Numero riga commessa": fields.get("plan_code"),
         "Nome commessa": fields.get("job_name"),
         "Dettaglio attività": fields.get("activity_name"),
     }
@@ -124,6 +155,72 @@ def main():
     detail_columns = [*detail_fields.keys(), "Cliente", "Tipo attività"]
     group_columns = [date_field, person_field, *detail_columns]
     daily = daily.groupby(group_columns, as_index=False, dropna=True)[sum_columns].sum()
+
+    # Collega ogni riga ZDT al dettaglio CRM/NAV tramite commessa, task e riga.
+    jobs_path = Path("public/jobs.json")
+    resources_path = Path("public/resources.json")
+    jobs = json.loads(jobs_path.read_text(encoding="utf-8")) if jobs_path.exists() else []
+    resources = json.loads(resources_path.read_text(encoding="utf-8")) if resources_path.exists() else []
+    resource_by_name = {normalize(item.get("Name", "")): normalize(item.get("No", "")) for item in resources}
+    jobs_by_key = {}
+    for job in jobs:
+        key = (
+            normalize_code(job.get("JobNo")),
+            normalize_code(job.get("JobTaskNo")),
+            normalize_code(job.get("JobPlanNo")),
+        )
+        if all(key):
+            jobs_by_key.setdefault(key, []).append(job)
+
+    def resolve_job(row):
+        key = (
+            normalize_code(row.get("Codice commessa")),
+            normalize_code(row.get("Codice task")),
+            normalize_code(row.get("Numero riga commessa")),
+        )
+        candidates = jobs_by_key.get(key, [])
+        if not candidates:
+            return None, "Commessa/task/riga non abbinati"
+
+        resource_no = resource_by_name.get(normalize(row.get(person_field, "")), "")
+        resource_matches = [item for item in candidates if resource_no and normalize(item.get("Resource No", "")) == resource_no]
+        if resource_matches:
+            candidates = resource_matches
+
+        prices = {numeric(item.get("Unit Price")) for item in candidates}
+        if None in prices or len(prices) != 1:
+            return None, "Tariffa NAV non univoca"
+        price = next(iter(prices))
+        if price is None:
+            return None, "Prezzo NAV non disponibile"
+        logged = sum(numeric(item.get("Ore Loggate")) or 0 for item in candidates)
+        invoice_hours = sum(numeric(item.get("Ore Enable Invoicing")) or 0 for item in candidates)
+        enabled = any(as_bool(item.get("Enable Invoicing")) for item in candidates)
+        return {"price": price, "crm_logged": logged, "invoice_hours": invoice_hours, "enabled": enabled}, "Valorizzata"
+
+    daily["Prezzo unitario NAV"] = 0.0
+    daily["Ore valorizzate"] = 0.0
+    daily["Stima fatturato"] = 0.0
+    daily["Fonte ore stima"] = ""
+    daily["Esito valorizzazione"] = ""
+    for index, row in daily.iterrows():
+        match, status = resolve_job(row)
+        logged_hours = numeric(row.get("Ore Loggate")) or 0
+        daily.at[index, "Esito valorizzazione"] = status
+        if not match:
+            continue
+        daily.at[index, "Prezzo unitario NAV"] = match["price"]
+        if match["enabled"]:
+            invoice_hours = match["invoice_hours"]
+            crm_logged = match["crm_logged"]
+            billable_hours = min(logged_hours, invoice_hours * logged_hours / crm_logged) if crm_logged > 0 else min(logged_hours, invoice_hours)
+            daily.at[index, "Fonte ore stima"] = "Ore Enable Invoicing CRM"
+        else:
+            billable_hours = logged_hours
+            daily.at[index, "Fonte ore stima"] = "Durata loggata ZDT"
+        daily.at[index, "Ore valorizzate"] = billable_hours
+        daily.at[index, "Stima fatturato"] = billable_hours * match["price"]
+
     daily = daily.rename(columns={date_field: "Data", person_field: "Componente"})
     records = daily.astype(object).where(pd.notna(daily), None).to_dict(orient="records")
     target = Path("public/activity-logs.json")
