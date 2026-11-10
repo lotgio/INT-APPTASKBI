@@ -148,6 +148,7 @@ export default function RevenueEstimate({ records, person, group, groupMembers, 
       .sort((a, b) => b.revenue - a.revenue || b.hours - a.hours || a.name.localeCompare(b.name, "it"));
   }, [records, person, monthPrefix, todayKey]);
   const maxPlannedRevenue = plannedClients[0]?.revenue || 0;
+  const plannedRevenue = plannedClients.reduce((sum, client) => sum + client.revenue, 0);
   const valuedCount = lines.filter((line) => line.match === "Valorizzata").length;
 
   return (
@@ -157,7 +158,8 @@ export default function RevenueEstimate({ records, person, group, groupMembers, 
         <span>{valuedCount} voci valorizzate{unresolved.length ? ` · ${unresolved.length} da verificare` : ""}</span>
       </header>
       <div className="revenue-kpis">
-        <article><span>Fatturato stimato</span><strong>{eur(totals.revenue)}</strong><small>Prezzo unitario NAV × ore valorizzate</small></article>
+        <article><span>Fatturato effettivo</span><strong>{eur(totals.revenue)}</strong><small>Ore fatturabili delle attività fino a oggi</small></article>
+        <article><span>Fatturato previsto</span><strong>{eur(plannedRevenue)}</strong><small>Ore fatturabili pianificate da domani</small></article>
         <article><span>Ore valorizzate</span><strong>{fmt(totals.billable)} h</strong><small>Ore fatturabili per singola attività CRM</small></article>
         <article><span>Ore loggate collegate</span><strong>{fmt(totals.logged)} h</strong><small>{lines.length} voci attività nel mese</small></article>
         <article><span>Da verificare</span><strong className={unresolved.length ? "revenue-warning" : ""}>{unresolved.length}</strong><small>Commesse senza abbinamento o prezzo univoco</small></article>
