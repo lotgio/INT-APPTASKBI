@@ -127,6 +127,27 @@ export default function RevenueEstimate({ records, person, group, groupMembers, 
     return [...values.entries()].map(([name, value]) => ({ name, ...value })).sort((a, b) => b.revenue - a.revenue);
   }, [lines]);
   const maxClientRevenue = clients[0]?.revenue || 0;
+  const plannedClients = useMemo(() => {
+    const values = new Map<string, { hours: number; revenue: number; lines: number }>();
+    records.forEach((row) => {
+      if (norm(row.Componente) !== norm(person)) return;
+      const day = String(row.Data ?? "").slice(0, 10);
+      if (!day.startsWith(monthPrefix) || day <= todayKey) return;
+      const billableHours = Math.max(hours(row["Ore valorizzate"]), 0);
+      if (billableHours <= 0) return;
+      const customer = String(row.Cliente ?? "").trim() || "Cliente non disponibile";
+      const revenue = Math.max(number(row["Stima fatturato"]) || billableHours * number(row["Prezzo unitario NAV"]), 0);
+      const current = values.get(customer) || { hours: 0, revenue: 0, lines: 0 };
+      current.hours += billableHours;
+      current.revenue += revenue;
+      current.lines += 1;
+      values.set(customer, current);
+    });
+    return [...values.entries()]
+      .map(([name, value]) => ({ name, ...value }))
+      .sort((a, b) => b.revenue - a.revenue || b.hours - a.hours || a.name.localeCompare(b.name, "it"));
+  }, [records, person, monthPrefix, todayKey]);
+  const maxPlannedRevenue = plannedClients[0]?.revenue || 0;
   const valuedCount = lines.filter((line) => line.match === "Valorizzata").length;
 
   return (
@@ -161,12 +182,21 @@ export default function RevenueEstimate({ records, person, group, groupMembers, 
       </section>
       <div className="revenue-body">
         <section className="revenue-clients">
-          <div className="revenue-section-heading"><div><h3>Stima per cliente</h3><p>Importo stimato per le attività non interne</p></div><span>{clients.length} clienti</span></div>
+          <div className="revenue-section-heading"><div><h3>Effettivo per cliente</h3><p>Importo maturato con attività fino a oggi</p></div><span>{clients.length} clienti</span></div>
           {clients.length === 0 ? <p className="revenue-empty">Nessun importo stimato per il periodo.</p> :
             <ol>{clients.slice(0, 8).map((client) => <li key={client.name}>
               <div><span title={client.name}>{client.name}</span><strong>{eur(client.revenue)} <small>{totals.revenue ? (client.revenue / totals.revenue * 100).toLocaleString("it-IT", { maximumFractionDigits: 0 }) : 0}%</small></strong></div>
               <i><b style={{ width: `${maxClientRevenue ? client.revenue / maxClientRevenue * 100 : 0}%` }} /></i>
             </li>)}</ol>}
+          <div className="revenue-planned-clients">
+            <div className="revenue-section-heading"><div><h3>Pianificato per cliente</h3><p>Da domani · ore fatturabili e valore NAV · {monthPrefix}</p></div><span>{plannedClients.length} clienti</span></div>
+            {plannedClients.length === 0 ? <p className="revenue-empty">Nessuna attività pianificata fatturabile nel periodo.</p> :
+              <ol>{plannedClients.slice(0, 8).map((client) => <li key={client.name}>
+                <div><span title={client.name}>{client.name}</span><strong>{eur(client.revenue)}</strong></div>
+                <small>{fmt(client.hours)} h fatturabili · {client.lines} voci</small>
+                <i><b style={{ width: `${maxPlannedRevenue ? client.revenue / maxPlannedRevenue * 100 : 0}%` }} /></i>
+              </li>)}</ol>}
+          </div>
         </section>
         <section className="revenue-detail">
           <div className="revenue-section-heading"><div><h3>Dettaglio commesse</h3><p>Valorizzazione delle ore per commessa e attività</p></div><span>{lines.length} voci</span></div>
