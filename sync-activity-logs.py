@@ -323,7 +323,7 @@ def main():
     target = Path("public/activity-logs.json")
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(json.dumps(records, ensure_ascii=False, default=str, allow_nan=False), encoding="utf-8")
-    print(f"Raggruppati {len(records)} totali per i 7 componenti selezionati: data={date_field}, componente={person_field}, commessa={fields['job_code'] or 'non disponibile'}, descrizione commessa={fields['job_name'] or 'non disponibile'}, attività={fields['activity_name'] or 'non disponibile'}")
+    print(f"Raggruppati {len(records)} totali per i {len(TEAM_MEMBERS)} componenti selezionati: data={date_field}, componente={person_field}, commessa={fields['job_code'] or 'non disponibile'}, descrizione commessa={fields['job_name'] or 'non disponibile'}, attività={fields['activity_name'] or 'non disponibile'}")
     print(f"Dimensione export consuntivazioni: {target.stat().st_size / (1024 * 1024):.1f} MB")
     print(f"Sincronizzati i totali da {account}/{container}/{blob} in {target}")
 
