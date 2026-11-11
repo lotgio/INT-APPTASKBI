@@ -41,6 +41,11 @@
 .group-analysis-bar i { height: 100%; flex: 0 0 auto; }
 .group-analysis-bar-actual { background: #16803c; }
 .group-analysis-bar-planned { background: #9ed7ae; }
+.group-analysis-bar-actual.group-analysis-coig { background: #e4490b; }
+.group-analysis-bar-planned.group-analysis-coig { background: #ffb27e; }
+.group-analysis-dot.actual.coig { background: #e4490b; }
+.group-analysis-dot.planned.coig { background: #ffb27e; }
+.group-analysis-coig-label { color: #c9430b !important; }
 .group-analysis-client-meta { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px 12px; color: #738195; font-size: 10px; }
 .group-analysis-client-meta span, .group-analysis-clients footer span { display: inline-flex; align-items: center; gap: 6px; }
 .group-analysis-dot { width: 8px; height: 8px; flex: 0 0 8px; border-radius: 50%; }
