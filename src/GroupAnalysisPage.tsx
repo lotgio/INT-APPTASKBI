@@ -270,15 +270,16 @@ export default function GroupAnalysisPage() {
             <ol className="group-analysis-client-bars">
               {metrics.clientRows.slice(0, 10).map((client) => {
                 const total = client.logged + client.planned;
+                const coig = client.name === "Attività interne · COIG";
                 return <li key={client.name}>
                   <div className="group-analysis-client-title"><strong title={client.name}>{client.name}</strong><span>{fmt(total)} h</span></div>
                   <div className="group-analysis-bar" role="img" aria-label={client.name + ": " + fmt(client.logged) + " ore loggate e " + fmt(client.planned) + " ore pianificate"}>
-                    <i className="group-analysis-bar-actual" style={{ width: (client.logged / maxClientHours * 100) + "%" }} />
-                    <i className="group-analysis-bar-planned" style={{ width: (client.planned / maxClientHours * 100) + "%" }} />
+                    <i className={"group-analysis-bar-actual" + (coig ? " group-analysis-coig" : "")} style={{ width: (client.logged / maxClientHours * 100) + "%" }} />
+                    <i className={"group-analysis-bar-planned" + (coig ? " group-analysis-coig" : "")} style={{ width: (client.planned / maxClientHours * 100) + "%" }} />
                   </div>
                   <div className="group-analysis-client-meta">
-                    <span><i className="group-analysis-dot actual" />{fmt(client.logged)} h loggate · {fmt(client.confirmed)} h confermate</span>
-                    <span><i className="group-analysis-dot planned" />{fmt(client.planned)} h pianificate</span>
+                    <span><i className={"group-analysis-dot actual" + (coig ? " coig" : "")} />{fmt(client.logged)} h loggate · {fmt(client.confirmed)} h confermate</span>
+                    <span><i className={"group-analysis-dot planned" + (coig ? " coig" : "")} />{fmt(client.planned)} h pianificate</span>
                   </div>
                 </li>;
               })}
@@ -286,7 +287,7 @@ export default function GroupAnalysisPage() {
             <div className="group-analysis-table-wrap"><table>
               <thead><tr><th>Cliente / attività</th><th>Componenti</th><th>Commesse</th><th>Ore loggate</th><th>Ore confermate</th><th>Ore pianificate</th><th>Fatturato effettivo</th><th>Fatturato previsto</th></tr></thead>
               <tbody>{metrics.clientRows.map((client) => <tr key={"row-" + client.name}>
-                <td><strong>{client.name}</strong></td><td>{client.people.size}</td><td>{client.jobs.size}</td>
+                <td><strong className={client.name === "Attività interne · COIG" ? "group-analysis-coig-label" : undefined}>{client.name}</strong></td><td>{client.people.size}</td><td>{client.jobs.size}</td>
                 <td>{fmt(client.logged)} h</td><td>{fmt(client.confirmed)} h</td><td>{fmt(client.planned)} h</td>
                 <td>{eur(client.effectiveRevenue)}<small>{fmt(client.effectiveBillable)} h fatturabili</small></td>
                 <td>{eur(client.plannedRevenue)}<small>{fmt(client.plannedBillable)} h fatturabili</small></td>
