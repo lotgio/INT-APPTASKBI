@@ -23,6 +23,9 @@ TEAM_MEMBERS = {
     "modolo meri", "toncelli michele", "villani riccardo", "vivoda fabio",
     "aquilino graziano", "maso giuliano", "pandolfo piero", "prando gloria",
     "rossi michela", "stramazzo andrea", "turcato luca", "zanetti paolo",
+    "coletta alberto", "martignago vanni", "nardo fabio", "rosina federico",
+    "russo michelangelo", "salerno silvio", "vecchio fabrizio salvatore",
+    "remonato enrico",
 }
 
 FIELD_CANDIDATES = {

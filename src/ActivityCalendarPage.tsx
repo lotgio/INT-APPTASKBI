@@ -396,7 +396,7 @@ export default function ActivityCalendarPage() {
         <section className="activity-toolbar">
           <div className="activity-group-picker" role="group" aria-label="Gruppo del team">
             <span>Gruppo</span>
-            <div>{(["BI", "CRM", "DEV", "CONSULENTI HBO", "CONSULENTI PMI (S)"] as TeamGroup[]).map((teamGroup) => <button key={teamGroup} type="button" aria-pressed={group === teamGroup} onClick={() => { setGroup(teamGroup); setSelectedPerson(TEAM_MEMBERS[teamGroup][0]); }}>{teamGroup}</button>)}</div>
+            <div>{(["BI", "CRM", "DEV", "CONSULENTI HBO", "CONSULENTI PMI (S)", "CONSULENTI PMI (P)", "MES"] as TeamGroup[]).map((teamGroup) => <button key={teamGroup} type="button" aria-pressed={group === teamGroup} onClick={() => { setGroup(teamGroup); setSelectedPerson(TEAM_MEMBERS[teamGroup][0]); }}>{teamGroup}</button>)}</div>
           </div>
           <label>Componente<select value={selectedPerson} onChange={(event) => setSelectedPerson(event.target.value)}>{people.map((name) => <option key={name} value={name}>{name}</option>)}</select></label>
         </section>
