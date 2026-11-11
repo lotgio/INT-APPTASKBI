@@ -20,6 +20,8 @@ TEAM_MEMBERS = {
     "verzotto maria", "rampazzo lisa", "sarto michele", "omodei cesare",
     "agostini nicolo", "corato cinzia", "lovo ilaria", "messina angela",
     "modolo meri", "toncelli michele", "villani riccardo", "vivoda fabio",
+    "aquilino graziano", "maso giuliano", "pandolfo piero", "prando gloria",
+    "rossi michela", "stramazzo andrea", "turcato luca", "zanetti paolo",
 }
 
 FIELD_CANDIDATES = {
