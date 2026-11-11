@@ -125,6 +125,7 @@ export default function GroupAnalysisPage() {
       const billable = Math.max(hours(row["Ore valorizzate"]), 0);
       const price = Math.max(number(row["Prezzo unitario NAV"]), 0);
       const revenue = Math.max(number(row["Stima fatturato"]) || billable * price, 0);
+      if (String(row["Esito valorizzazione"] ?? "") !== "Valorizzata") target.unresolved++;
       if (planned) {
         target.planned += logged;
         target.plannedBillable += billable;
