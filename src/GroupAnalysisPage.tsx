@@ -218,6 +218,22 @@ export default function GroupAnalysisPage() {
   const maxClientHours = Math.max(1, ...metrics.clientRows.map((client) => client.logged + client.planned));
   const rankedClients = metrics.clientRows.slice(0, 10);
   const clientColumnRows = Math.ceil(rankedClients.length / 2);
+  const clientColumns = [rankedClients.slice(0, clientColumnRows), rankedClients.slice(clientColumnRows)];
+  const renderClient = (client: ClientMetrics) => {
+    const total = client.logged + client.planned;
+    const coig = client.name === "Attività interne · COIG";
+    return <li key={client.name}>
+      <div className="group-analysis-client-title"><strong title={client.name}>{client.name}</strong><span>{fmt(total)} h</span></div>
+      <div className="group-analysis-bar" role="img" aria-label={client.name + ": " + fmt(client.logged) + " ore loggate e " + fmt(client.planned) + " ore pianificate"}>
+        <i className={"group-analysis-bar-actual" + (coig ? " group-analysis-coig" : "")} style={{ width: (client.logged / maxClientHours * 100) + "%" }} />
+        <i className={"group-analysis-bar-planned" + (coig ? " group-analysis-coig" : "")} style={{ width: (client.planned / maxClientHours * 100) + "%" }} />
+      </div>
+      <div className="group-analysis-client-meta">
+        <span><i className={"group-analysis-dot actual" + (coig ? " coig" : "")} />{fmt(client.logged)} h loggate · {fmt(client.confirmed)} h confermate</span>
+        <span><i className={"group-analysis-dot planned" + (coig ? " coig" : "")} />{fmt(client.planned)} h pianificate</span>
+      </div>
+    </li>;
+  };
   const periodLabel = monthLabel(month);
   const plannedToDateText = "consuntivi fino a oggi · piani da domani";
 
@@ -269,23 +285,11 @@ export default function GroupAnalysisPage() {
         <section className="group-analysis-card group-analysis-clients">
           <header><div><h2>Dove lavora il gruppo</h2><p>Ore loggate fino a oggi e pianificate da domani, raggruppate per cliente. Le attività COIG sono raccolte a parte.</p></div><span>{metrics.clientRows.length} voci</span></header>
           {metrics.clientRows.length === 0 ? <p className="group-analysis-empty">Nessuna attività per il periodo selezionato.</p> : <>
-            <ol className="group-analysis-client-bars" style={{ gridTemplateRows: `repeat(${clientColumnRows}, auto)` }}>
-              {rankedClients.map((client) => {
-                const total = client.logged + client.planned;
-                const coig = client.name === "Attività interne · COIG";
-                return <li key={client.name}>
-                  <div className="group-analysis-client-title"><strong title={client.name}>{client.name}</strong><span>{fmt(total)} h</span></div>
-                  <div className="group-analysis-bar" role="img" aria-label={client.name + ": " + fmt(client.logged) + " ore loggate e " + fmt(client.planned) + " ore pianificate"}>
-                    <i className={"group-analysis-bar-actual" + (coig ? " group-analysis-coig" : "")} style={{ width: (client.logged / maxClientHours * 100) + "%" }} />
-                    <i className={"group-analysis-bar-planned" + (coig ? " group-analysis-coig" : "")} style={{ width: (client.planned / maxClientHours * 100) + "%" }} />
-                  </div>
-                  <div className="group-analysis-client-meta">
-                    <span><i className={"group-analysis-dot actual" + (coig ? " coig" : "")} />{fmt(client.logged)} h loggate · {fmt(client.confirmed)} h confermate</span>
-                    <span><i className={"group-analysis-dot planned" + (coig ? " coig" : "")} />{fmt(client.planned)} h pianificate</span>
-                  </div>
-                </li>;
-              })}
-            </ol>
+            <div className="group-analysis-client-columns">
+              {clientColumns.map((column, index) => <ol className="group-analysis-client-column" key={index}>
+                {column.map(renderClient)}
+              </ol>)}
+            </div>
             <div className="group-analysis-table-wrap"><table>
               <thead><tr><th>Cliente / attività</th><th>Componenti</th><th>Commesse</th><th>Ore loggate</th><th>Ore confermate</th><th>Ore pianificate</th><th>Fatturato effettivo</th><th>Fatturato previsto</th></tr></thead>
               <tbody>{metrics.clientRows.map((client) => <tr key={"row-" + client.name}>
