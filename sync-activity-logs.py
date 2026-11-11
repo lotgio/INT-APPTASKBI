@@ -18,6 +18,8 @@ TEAM_MEMBERS = {
     "albanese lorenzo", "brigo matteo", "brotto fabio", "cecchin chiara",
     "cestaro luca", "dian enrico", "luise alessandro", "marino daniele",
     "verzotto maria", "rampazzo lisa", "sarto michele", "omodei cesare",
+    "agostini nicolo", "corato cinzia", "lovo ilaria", "messina angela",
+    "modolo meri", "toncelli michele", "villani riccardo", "vivoda fabio",
 }
 
 FIELD_CANDIDATES = {
