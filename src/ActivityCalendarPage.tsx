@@ -8,7 +8,7 @@ type Row = Record<string, unknown>;
 type DayTotals = { logged: number; confirmed: number; unconfirmed: number };
 type ActivityAlert = { id: string; date: string; kind: "hours" | "confirmation"; logged: number; confirmed: number };
 type JobDetail = { code: string; name: string; activity: string; customer: string; kind: "COIG" | "Non COIG"; logged: number; confirmed: number; planned?: number };
-type ClientDayGroup = { customer: string; logged: number; confirmed: number; jobs: JobDetail[] };
+type ClientDayGroup = { customer: string; logged: number; confirmed: number; planned: number; jobs: JobDetail[] };
 type ActivitySummary = { label: string; logged: number; confirmed: number; planned: number; codes: Set<string> };
 const DAILY_TARGET = 8;
 const ALERT_START_DATE = "2026-11-01";
@@ -156,8 +156,10 @@ export default function ActivityCalendarPage() {
   const totals = useMemo(() => new Map([...allTotals.entries()].filter(([day]) => day.startsWith(monthPrefix))), [allTotals, monthPrefix]);
 
   const selectedDayGroups = useMemo(() => {
-    if (!selectedCalendarDay || selectedCalendarDay > todayKey) return [] as ClientDayGroup[];
-    const groups = new Map<string, { customer: string; logged: number; confirmed: number; jobs: Map<string, JobDetail> }>();
+    if (!selectedCalendarDay) return [] as ClientDayGroup[];
+    const isPlanned = selectedCalendarDay > todayKey;
+    if (isPlanned && !isWorkday(selectedCalendarDay)) return [] as ClientDayGroup[];
+    const groups = new Map<string, ClientDayGroup & { jobs: Map<string, JobDetail> }>();
     records.forEach((row) => {
       if (normalize(String(row.Componente ?? "").trim()) !== normalize(selectedPerson) || toDay(row.Data) !== selectedCalendarDay) return;
       const code = String(row["Codice commessa"] ?? "").trim();
@@ -166,21 +168,38 @@ export default function ActivityCalendarPage() {
       const rawCustomer = String(row.Cliente ?? "").trim();
       const kind: JobDetail["kind"] = String(row["Tipo attività"] ?? "").toUpperCase() === "COIG" || [code, name, activity].some((value) => /^COIG/i.test(value)) ? "COIG" : "Non COIG";
       const customer = kind === "COIG" ? "Attività interne · COIG" : rawCustomer || "Cliente non disponibile";
-      const group = groups.get(customer) || { customer, logged: 0, confirmed: 0, jobs: new Map<string, JobDetail>() };
+      const group = groups.get(customer) || { customer, logged: 0, confirmed: 0, planned: 0, jobs: new Map<string, JobDetail>() };
       const key = [kind, code, name, activity].join("|");
-      const job = group.jobs.get(key) || { code, name, activity, customer: rawCustomer, kind, logged: 0, confirmed: 0 };
-      job.logged += toHours(row["Ore Loggate"] ?? row.Ore);
-      job.confirmed += toHours(row["Ore Confermate"]);
-      group.logged += toHours(row["Ore Loggate"] ?? row.Ore);
-      group.confirmed += toHours(row["Ore Confermate"]);
+      const job = group.jobs.get(key) || { code, name, activity, customer: rawCustomer, kind, logged: 0, confirmed: 0, planned: 0 };
+      const hours = Math.max(toHours(row["Ore Loggate"] ?? row.Ore), 0);
+      if (isPlanned) {
+        job.planned = (job.planned || 0) + hours;
+        group.planned += hours;
+      } else {
+        job.logged += hours;
+        job.confirmed += toHours(row["Ore Confermate"]);
+        group.logged += hours;
+        group.confirmed += toHours(row["Ore Confermate"]);
+      }
       group.jobs.set(key, job);
       groups.set(customer, group);
     });
     return [...groups.values()]
-      .map((group) => ({ ...group, jobs: [...group.jobs.values()].sort((a, b) => b.logged - a.logged || a.code.localeCompare(b.code, "it")) }))
-      .sort((a, b) => b.logged - a.logged || a.customer.localeCompare(b.customer, "it"));
+      .map((group) => ({
+        ...group,
+        jobs: [...group.jobs.values()].sort((a, b) =>
+          (isPlanned ? (b.planned || 0) - (a.planned || 0) : b.logged - a.logged) || a.code.localeCompare(b.code, "it")
+        )
+      }))
+      .sort((a, b) =>
+        (isPlanned ? b.planned - a.planned : b.logged - a.logged) || a.customer.localeCompare(b.customer, "it")
+      );
   }, [records, selectedPerson, selectedCalendarDay, todayKey]);
-  const selectedDayTotals = selectedDayGroups.reduce((sum, group) => ({ logged: sum.logged + group.logged, confirmed: sum.confirmed + group.confirmed }), { logged: 0, confirmed: 0 });
+  const selectedDayTotals = selectedDayGroups.reduce((sum, group) => ({
+    logged: sum.logged + group.logged,
+    confirmed: sum.confirmed + group.confirmed,
+    planned: sum.planned + group.planned
+  }), { logged: 0, confirmed: 0, planned: 0 });
 
   const jobDetails = useMemo(() => {
     const grouped = new Map<string, JobDetail>();
@@ -499,13 +518,13 @@ export default function ActivityCalendarPage() {
             const holiday = holidayName(key);
             const workingDay = isWorkday(key);
             const dayAlerts = alerts.filter((alert) => alert.date === key);
-            const hasDetails = workingDay && key <= todayKey && value !== undefined;
+            const hasDetails = workingDay && value !== undefined && (key <= todayKey || value.logged > 0);
             const state = !workingDay ? "activity-nonworking" : dayAlerts.length ? "activity-anomaly" : key > todayKey ? (value && value.logged > 0 ? "activity-planned" : "activity-no-data") : value === undefined ? "activity-no-data" : value.confirmed >= DAILY_TARGET ? "activity-good" : value.logged >= DAILY_TARGET ? "activity-logged" : "activity-low";
             return <article key={key} className={`activity-day ${state}${hasDetails ? " activity-day-clickable" : ""}`}
               title={holiday || (!workingDay ? "Fine settimana — escluso dal conteggio" : hasDetails ? "Clicca per vedere commesse e clienti" : "")}
               role={hasDetails ? "button" : undefined} tabIndex={hasDetails ? 0 : undefined}
               aria-haspopup={hasDetails ? "dialog" : undefined}
-              aria-label={hasDetails ? `${formatDay(key)}: ${formatHours(value!.logged)} ore loggate, clicca per i dettagli` : undefined}
+              aria-label={hasDetails ? `${formatDay(key)}: ${formatHours(value!.logged)} ${key > todayKey ? "ore pianificate" : "ore loggate"}, clicca per i dettagli` : undefined}
               onClick={hasDetails ? () => setSelectedCalendarDay(key) : undefined}
               onKeyDown={hasDetails ? (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setSelectedCalendarDay(key); } } : undefined}>
               <span>{day}</span>
@@ -519,15 +538,15 @@ export default function ActivityCalendarPage() {
         {selectedCalendarDay && <div className="activity-day-modal-backdrop" role="presentation" onClick={() => setSelectedCalendarDay(null)}>
           <section className="activity-day-modal" role="dialog" aria-modal="true" aria-labelledby="activity-day-modal-title" onClick={(event) => event.stopPropagation()}>
             <header>
-              <div><p>{selectedPerson}</p><h2 id="activity-day-modal-title">Commesse del {formatDay(selectedCalendarDay)}</h2><small>{formatHours(selectedDayTotals.logged)} h loggate · {formatHours(selectedDayTotals.confirmed)} h confermate</small></div>
+              <div><p>{selectedPerson}</p><h2 id="activity-day-modal-title">{selectedCalendarDay > todayKey ? "Attività pianificate" : "Commesse del"} {formatDay(selectedCalendarDay)}</h2><small>{selectedCalendarDay > todayKey ? `${formatHours(selectedDayTotals.planned)} h pianificate` : `${formatHours(selectedDayTotals.logged)} h loggate · ${formatHours(selectedDayTotals.confirmed)} h confermate`}</small></div>
               <button type="button" className="activity-day-modal-close" aria-label="Chiudi dettagli giornata" onClick={() => setSelectedCalendarDay(null)}>×</button>
             </header>
-            {selectedDayGroups.length === 0 ? <p className="activity-day-modal-empty">Non risultano commesse associate a questa giornata.</p> :
+            {selectedDayGroups.length === 0 ? <p className="activity-day-modal-empty">{selectedCalendarDay > todayKey ? "Non risultano attività pianificate per questa giornata." : "Non risultano commesse associate a questa giornata."}</p> :
               <div className="activity-day-modal-groups">{selectedDayGroups.map((group) => <section key={group.customer}>
-                <header><h3>{group.customer}</h3><strong>{formatHours(group.logged)} h</strong></header>
+                <header><h3>{group.customer}</h3><strong>{formatHours(selectedCalendarDay > todayKey ? group.planned : group.logged)} h {selectedCalendarDay > todayKey ? "pianificate" : ""}</strong></header>
                 <ul>{group.jobs.map((job, index) => <li key={`${job.kind}|${job.code}|${job.name}|${job.activity}|${index}`}>
                   <div className="activity-day-modal-job-name"><strong>{job.code || job.name || "Commessa senza codice"}</strong><span>{[job.name, job.activity].filter(Boolean).join(" · ") || "Descrizione non disponibile"}</span></div>
-                  <div className="activity-day-modal-job-hours"><strong>{formatHours(job.logged)} h</strong><small>{formatHours(job.confirmed)} h confermate</small></div>
+                  <div className="activity-day-modal-job-hours">{selectedCalendarDay > todayKey ? <strong>{formatHours(job.planned || 0)} h pianificate</strong> : <><strong>{formatHours(job.logged)} h</strong><small>{formatHours(job.confirmed)} h confermate</small></>}</div>
                 </li>)}</ul>
               </section>)}</div>}
             <footer><span>Componente: {selectedPerson}</span><button type="button" onClick={() => setSelectedCalendarDay(null)}>Chiudi</button></footer>
