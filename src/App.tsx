@@ -203,6 +203,20 @@ export default function App() {
           Consuntivazione
         </button>
         <button
+          onClick={() => setPage("group-analysis")}
+          style={{
+            padding: "8px 16px",
+            backgroundColor: page === "group-analysis" ? "#0f172a" : "white",
+            color: page === "group-analysis" ? "white" : "#0f172a",
+            border: "1px solid #ccc",
+            borderRadius: "4px",
+            cursor: "pointer",
+            fontSize: "14px",
+          }}
+        >
+          Analisi gruppo
+        </button>
+        <button
           onClick={() => setPage("team")}
           style={{
             padding: "8px 16px",
@@ -258,6 +272,8 @@ export default function App() {
         />
       ) : page === "activity-calendar" ? (
         <ActivityCalendarPage />
+      ) : page === "group-analysis" ? (
+        <GroupAnalysisPage />
       ) : page === "manage" ? (
         <TaskManagePage
           tasks={tasks}
