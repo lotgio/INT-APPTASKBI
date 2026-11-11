@@ -216,6 +216,8 @@ export default function GroupAnalysisPage() {
   }, [records, memberSet, memberNames, prefix, yearPrefix, month, todayKey]);
 
   const maxClientHours = Math.max(1, ...metrics.clientRows.map((client) => client.logged + client.planned));
+  const rankedClients = metrics.clientRows.slice(0, 10);
+  const clientColumnRows = Math.ceil(rankedClients.length / 2);
   const periodLabel = monthLabel(month);
   const plannedToDateText = "consuntivi fino a oggi · piani da domani";
 
@@ -267,8 +269,8 @@ export default function GroupAnalysisPage() {
         <section className="group-analysis-card group-analysis-clients">
           <header><div><h2>Dove lavora il gruppo</h2><p>Ore loggate fino a oggi e pianificate da domani, raggruppate per cliente. Le attività COIG sono raccolte a parte.</p></div><span>{metrics.clientRows.length} voci</span></header>
           {metrics.clientRows.length === 0 ? <p className="group-analysis-empty">Nessuna attività per il periodo selezionato.</p> : <>
-            <ol className="group-analysis-client-bars">
-              {metrics.clientRows.slice(0, 10).map((client) => {
+            <ol className="group-analysis-client-bars" style={{ gridTemplateRows: `repeat(${clientColumnRows}, auto)` }}>
+              {rankedClients.map((client) => {
                 const total = client.logged + client.planned;
                 const coig = client.name === "Attività interne · COIG";
                 return <li key={client.name}>
