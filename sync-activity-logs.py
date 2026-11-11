@@ -52,6 +52,24 @@ def normalize(value):
     return "".join(char for char in decomposed if char.isalnum() and not unicodedata.combining(char))
 
 
+# Alias di anagrafica: le righe ZDT possono invertire nome/cognome o omettere il secondo nome.
+PERSON_ALIASES = {
+    "federicorosina": "Rosina Federico",
+    "rosinafederico": "Rosina Federico",
+    "vecchiofabrizio": "Vecchio Fabrizio Salvatore",
+    "vecchiofabriziosalvatore": "Vecchio Fabrizio Salvatore",
+}
+
+
+def canonical_person(value):
+    raw = str(value or "").strip()
+    return PERSON_ALIASES.get(normalize(raw), raw)
+
+
+def normalize_person(value):
+    return normalize(canonical_person(value))
+
+
 def normalize_code(value):
     text = str(value or "").strip()
     try:
@@ -144,6 +162,11 @@ def main():
     if not date_field or not person_field or not fields["hours"] or not fields["confirmed_hours"]:
         raise ValueError(f"Colonne necessarie non individuate; campi trovati: {list(frame.columns)}")
 
+    source_people = frame[person_field].dropna().astype(str).str.strip().unique()
+    for term in ("rosin", "vecchio"):
+        matches = sorted({value for value in source_people if term in normalize(value)})
+        print(f"Nomi sorgente {term}: {matches}")
+
     daily = frame[[date_field, person_field]].copy()
     detail_fields = {
         "Codice commessa": fields.get("job_code"),
@@ -193,7 +216,12 @@ def main():
         daily["Minuti Non Confermati"] = (daily["Minuti Loggati"] - daily["Minuti Confermati"]).clip(lower=0)
 
     daily = daily.dropna(subset=[date_field, person_field])
-    daily = daily[daily[person_field].map(normalize).isin({normalize(name) for name in TEAM_MEMBERS})]
+    daily[person_field] = daily[person_field].map(canonical_person)
+    allowed_people = {normalize(name) for name in TEAM_MEMBERS}
+    daily = daily[daily[person_field].map(normalize).isin(allowed_people)]
+    person_counts = daily[person_field].value_counts()
+    for target in ("Rosina Federico", "Vecchio Fabrizio Salvatore"):
+        print(f"Righe ZDT per {target}: {int(person_counts.get(target, 0))}")
     sum_columns = list(output_fields.values())
     detail_columns = [*detail_fields.keys(), "Cliente", "Tipo attività"]
     group_columns = [date_field, person_field, *detail_columns]
@@ -307,7 +335,7 @@ def main():
     for _, detail in detail_frame.iterrows():
         key = (
             detail_day(detail.get(detail_date)),
-            normalize(detail.get(detail_person, "")),
+            normalize_person(detail.get(detail_person, "")),
             normalize_code(detail.get(detail_job)),
             normalize_code(detail.get(detail_task)),
             normalize_code(detail.get(detail_plan)),
@@ -335,7 +363,7 @@ def main():
             daily.at[index, "Prezzo unitario NAV"] = match["price"]
         detail_key = (
             detail_day(row.get(date_field)),
-            normalize(row.get(person_field, "")),
+            normalize_person(row.get(person_field, "")),
             normalize_code(row.get("Codice commessa")),
             normalize_code(row.get("Codice task")),
             normalize_code(row.get("Numero riga commessa")),
