@@ -12,6 +12,7 @@ import TaskResourceViewPage from "./TaskResourceViewPage";
 import TodoPage from "./TodoPage";
 import JobProgressPage from "./JobProgressPage";
 import ActivityCalendarPage from "./ActivityCalendarPage";
+import GroupAnalysisPage from "./GroupAnalysisPage";
 import "./App.css";
 
 interface Job {
@@ -30,7 +31,7 @@ interface Job {
 }
 
 export default function App() {
-  const [page, setPage] = useState<"create" | "team" | "manage" | "database" | "stats" | "jobs" | "todo" | "job-progress" | "activity-calendar">("manage");
+  const [page, setPage] = useState<"create" | "team" | "manage" | "database" | "stats" | "jobs" | "todo" | "job-progress" | "activity-calendar" | "group-analysis">("manage");
   const [tasks, setTasks] = useState<Task[]>([]);
   const [todos, setTodos] = useState<TodoItem[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
