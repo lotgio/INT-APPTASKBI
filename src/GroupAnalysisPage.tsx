@@ -17,7 +17,7 @@ type ClientMetrics = {
   people: Set<string>;
 };
 
-const GROUPS: TeamGroup[] = ["BI", "CRM", "DEV", "CONSULENTI HBO"];
+const GROUPS: TeamGroup[] = ["BI", "CRM", "DEV", "CONSULENTI HBO", "CONSULENTI PMI (S)"];
 const HOLIDAYS: Record<string, string> = {
   "01-01": "Capodanno", "01-06": "Epifania", "04-25": "Festa della Liberazione",
   "05-01": "Festa del Lavoro", "06-02": "Festa della Repubblica",
