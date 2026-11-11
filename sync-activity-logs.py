@@ -12,6 +12,7 @@ from azure.core.exceptions import ResourceModifiedError
 from azure.storage.blob import BlobServiceClient
 from dotenv import load_dotenv
 
+# Keep this normalization-aware whitelist aligned with src/teamMembers.ts.
 TEAM_MEMBERS = {
     "lotta giorgia", "favero matteo", "stocco alberto", "vita anna",
     "mason mauro", "padovan matteo", "micheletto nicola",
